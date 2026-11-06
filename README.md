@@ -1,5 +1,6 @@
-# Pimp my grub
 <p align="center"><img src="docs/logo.png" width="96" alt="Pimp my grub icon"></p>
+
+# Pimp my grub
 
 **A native Linux app to design GRUB boot themes visually, browse a theme store, and install a theme safely.**
 Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to you first and can be undone.
@@ -103,6 +104,14 @@ QMAKE=$(command -v qmake6) cargo build --release -p pimp-my-grub
 Tests: `cargo test -p pimp-my-grub-core && sh tests/helper.test.sh`.
 `PIMPMYGRUB_CATALOG=catalog.json` replaces the bundled store catalog (offline mirrors, testing).
 Note: the first build compiles the Qt bindings (`cxx-qt-lib`) and takes about ten minutes.
+
+> **Build prerequisite:** the packaging scripts (`sh packaging/build-deb.sh` and the other
+> `packaging/*.sh` files) expect `target/release/pimp-my-grub` to be the compiled **binary**,
+> not an empty directory. Run `cargo build --release -p pimp-my-grub` first (after the above
+> install steps) so the release executable exists at `target/release/pimp-my-grub`.
+> If it is an empty directory instead of a file, the packaging scripts fail immediately:
+> `install: omitting directory '.../target/release/pimp-my-grub'` (exit 1), so no `.deb` is
+> produced. Build the binary first, then run the packaging script.
 
 ## Repository layout
 ```
