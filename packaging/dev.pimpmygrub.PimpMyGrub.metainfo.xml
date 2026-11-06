@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.pimpmygrub.PimpMyGrub</id>
+  <name>Pimp my grub</name>
+  <summary>Design and safely install GRUB boot themes</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <description>
+    <p>A native Qt 6 theme builder for the GRUB bootloader with a visual editor, a theme store and a reversible installer that shows every change and asks for confirmation first.</p>
+  </description>
+  <launchable type="desktop-id">dev.pimpmygrub.PimpMyGrub.desktop</launchable>
+  <provides><binary>pimp-my-grub</binary></provides>
+  <categories><category>Utility</category><category>System</category></categories>
+  <content_rating type="oars-1.1"/>
+  <releases><release version="0.2.0" date="2026-11-04"/></releases>
+</component>

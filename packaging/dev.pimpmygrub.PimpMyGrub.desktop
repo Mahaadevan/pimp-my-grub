@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Pimp my grub
+GenericName=GRUB Theme Builder
+Comment=Design and safely install GRUB boot themes
+Exec=pimp-my-grub
+Icon=pimp-my-grub
+Terminal=false
+Categories=Utility;System;Settings;
+Keywords=grub;theme;boot;bootloader;
+StartupWMClass=pimp-my-grub

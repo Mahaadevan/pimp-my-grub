@@ -1,0 +1,24 @@
+{
+  "repos": [
+    { "repo": "Jacksaur/Gorgeous-GRUB", "branch": "main", "stars": 6130, "desc": "Collection of GRUB themes" },
+    { "repo": "vinceliuice/grub2-themes", "branch": "master", "stars": 0, "desc": "Modern GRUB2 themes: Vimix, Stylish, Tela, Slaze" },
+    { "repo": "Lxtharia/minegrub-theme", "branch": "dev", "stars": 4638, "desc": "Minecraft-style GRUB theme" },
+    { "repo": "AdisonCavani/distro-grub-themes", "branch": "master", "stars": 1166, "desc": "Distro-specific GRUB themes" },
+    { "repo": "shvchk/fallout-grub-theme", "branch": "master", "stars": 1083, "desc": "Fallout terminal GRUB theme" },
+    { "repo": "harishnkr/bsol", "branch": "main", "stars": 670, "desc": "Bsol GRUB theme" },
+    { "repo": "catppuccin/grub", "branch": "main", "stars": 645, "desc": "Catppuccin for GRUB" },
+    { "repo": "VandalByte/dedsec-grub2-theme", "branch": "main", "stars": 554, "desc": "DedSec GRUB theme" },
+    { "repo": "VandalByte/darkmatter-grub2-theme", "branch": "main", "stars": 407, "desc": "Darkmatter GRUB theme" },
+    { "repo": "adi1090x/uGRUB", "branch": "main", "stars": 407, "desc": "Unique GRUB themes" },
+    { "repo": "Coopydood/HyperFluent-GRUB-Theme", "branch": "main", "stars": 397, "desc": "HyperFluent GRUB theme" },
+    { "repo": "Priyank-Adhav/Matrix-Morpheus-GRUB-Theme", "branch": "master", "stars": 267, "desc": "Matrix themed GRUB" },
+    { "repo": "adnksharp/CyberGRUB-2077", "branch": "base", "stars": 237, "desc": "Cyberpunk 2077 GRUB theme" },
+    { "repo": "shvchk/poly-dark", "branch": "master", "stars": 214, "desc": "Poly dark GRUB theme" },
+    { "repo": "Aleph1-9012/Evangelion", "branch": "main", "stars": 185, "desc": "Evangelion GRUB theme" },
+    { "repo": "Aleph1-9012/Sidonia", "branch": "main", "stars": 167, "desc": "Five sci-fi GRUB themes" },
+    { "repo": "uiriansan/LainGrubTheme", "branch": "main", "stars": 132, "desc": "Lain GRUB theme" },
+    { "repo": "stuarthayhurst/argon-grub-theme", "branch": "master", "stars": 84, "desc": "Argon GRUB theme" },
+    { "repo": "ChrisTitusTech/Top-5-Bootloader-Themes", "branch": "main", "stars": 0, "desc": "Five popular bootloader themes" }
+  ],
+  "themes": []
+}

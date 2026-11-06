@@ -1,0 +1,44 @@
+# Midnight: a small demo theme made with Pimp my grub (open it with `pimp-my-grub examples/midnight`).
+title-text: "Pimp my grub"
+title-color: "#e6e9ef"
+desktop-color: "#0a0e22"
+desktop-image: "background.png"
+
++ boot_menu {
+  left = 50%-300
+  top = 30%
+  width = 600
+  height = 40%
+  item_height = 38
+  item_padding = 14
+  item_spacing = 8
+  item_color = "#aab3c5"
+  selected_item_color = "#ffffff"
+  selected_item_pixmap_style = "select_*.png"
+  icon_width = 0
+  icon_height = 0
+  item_icon_space = 0
+  scrollbar = false
+}
+
++ progress_bar {
+  id = "__timeout__"
+  left = 50%-300
+  top = 85%
+  width = 600
+  height = 20
+  bar_style = "bar_*.png"
+  highlight_style = "fill_*.png"
+  text = "@TIMEOUT_NOTIFICATION_SHORT@"
+  text_color = "#ffffff"
+}
+
++ label {
+  left = 0
+  top = 92%
+  width = 100%
+  height = 24
+  align = "center"
+  color = "#7f8aa3"
+  text = "@KEYMAP_SHORT@"
+}
