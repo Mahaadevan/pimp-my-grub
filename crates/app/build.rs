@@ -7,6 +7,7 @@ fn main() {
             .qml_files([
                 "qml/Main.qml", "qml/EditorPage.qml", "qml/LayersPanel.qml", "qml/InspectorPanel.qml",
                 "qml/StorePage.qml", "qml/InstallDialog.qml",
+                "qml/Tokens.qml", "qml/AppButton.qml", "qml/AppIconButton.qml", "qml/AppField.qml", "qml/AppSlider.qml", "qml/NavTab.qml",
             ])
             .depend("QtQuick"),
     )

@@ -28,4 +28,4 @@ sh packaging/install.sh %{buildroot} %{_prefix}
 %{_datadir}/polkit-1/actions/dev.pimpmygrub.policy
 %{_datadir}/applications/dev.pimpmygrub.PimpMyGrub.desktop
 %{_datadir}/metainfo/dev.pimpmygrub.PimpMyGrub.metainfo.xml
-%{_datadir}/icons/hicolor/512x512/apps/pimp-my-grub.png
+%{_datadir}/icons/hicolor/*/apps/pimp-my-grub.png

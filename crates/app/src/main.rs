@@ -5,11 +5,11 @@ mod scene_item;
 use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QUrl};
 
 fn main() {
-    // Follow the desktop: KDE gets its own Controls style, everything else gets Fusion (reads the system palette).
+    // The UI draws its own dark GrubStudio-style look, which needs a style that allows full customisation.
+    // Basic ships with every Qt 6 install; set QT_QUICK_CONTROLS_STYLE yourself to override.
     if std::env::var_os("QT_QUICK_CONTROLS_STYLE").is_none() {
-        let kde = std::env::var("XDG_CURRENT_DESKTOP").map(|d| d.to_uppercase().contains("KDE")).unwrap_or(false);
-        std::env::set_var("QT_QUICK_CONTROLS_STYLE", if kde { "org.kde.desktop" } else { "Fusion" });
-        std::env::set_var("QT_QUICK_CONTROLS_FALLBACK_STYLE", "Fusion");
+        std::env::set_var("QT_QUICK_CONTROLS_STYLE", "Basic");
+        std::env::set_var("QT_QUICK_CONTROLS_FALLBACK_STYLE", "Basic");
     }
     // `pimp-my-grub <theme-folder>` opens a theme straight away (handy from a file manager).
     if let Some(dir) = std::env::args().nth(1).filter(|a| std::path::Path::new(a).is_dir()) {

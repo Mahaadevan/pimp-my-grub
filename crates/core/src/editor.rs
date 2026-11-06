@@ -15,7 +15,7 @@ fn template(ty: &str) -> Vec<(&'static str, &'static str)> {
         "label" => vec![("left", "100"), ("top", "100"), ("width", "320"), ("height", "32"), ("text", "\"Label\""), ("color", "\"#ffffff\""), ("font", "\"Unifont Regular 16\""), ("align", "\"left\"")],
         "image" => vec![("left", "100"), ("top", "100"), ("width", "200"), ("height", "120"), ("file", "\"\"")],
         "boot_menu" => vec![("left", "20%"), ("top", "30%"), ("width", "60%"), ("height", "40%"), ("item_font", "\"Unifont Regular 16\""), ("selected_item_font", "\"Unifont Regular 16\""), ("item_color", "\"#c8ccd4\""), ("selected_item_color", "\"#ffffff\""), ("item_height", "36"), ("item_padding", "12"), ("item_spacing", "8"), ("icon_width", "0"), ("icon_height", "0"), ("item_icon_space", "0"), ("scrollbar", "false")],
-        "progress_bar" => vec![("id", "\"__timeout__\""), ("left", "20%"), ("top", "85%"), ("width", "60%"), ("height", "20"), ("fg_color", "\"#4aa3ff\""), ("bg_color", "\"#2a3140\""), ("border_color", "\"#4a5468\""), ("text_color", "\"#ffffff\""), ("font", "\"Unifont Regular 16\""), ("text", "\"@TIMEOUT_NOTIFICATION_SHORT@\"")],
+        "progress_bar" => vec![("id", "\"__timeout__\""), ("left", "20%"), ("top", "85%"), ("width", "60%"), ("height", "20"), ("fg_color", "\"#ff9248\""), ("bg_color", "\"#2a3140\""), ("border_color", "\"#4a5468\""), ("text_color", "\"#ffffff\""), ("font", "\"Unifont Regular 16\""), ("text", "\"@TIMEOUT_NOTIFICATION_SHORT@\"")],
         "circular_progress" => vec![("id", "\"__timeout__\""), ("left", "45%"), ("top", "75%"), ("width", "10%"), ("height", "10%"), ("num_ticks", "24"), ("start_angle", "-64"), ("ticks_disappear", "false")],
         "vbox" => vec![("left", "10%"), ("top", "10%"), ("width", "30%"), ("height", "60%")],
         "hbox" => vec![("left", "10%"), ("top", "10%"), ("width", "60%"), ("height", "30%")],
@@ -161,7 +161,7 @@ impl Editor {
     }
     pub fn add_rect(&mut self, color: &str) {
         let name = format!("rect-{}.png", new_uid());
-        self.add_asset(&name, solid_png(parse_color(color, (74, 163, 255))));
+        self.add_asset(&name, solid_png(parse_color(color, (255, 146, 72))));
         let id = self.add("image", &[("file", q(&name)), ("width", "300".into()), ("height", "160".into())]);
         self.rect_colors.insert(id, color.to_string());
     }
@@ -169,7 +169,7 @@ impl Editor {
         if let Some(c) = find(&self.doc.root, uid) {
             let f = c.pu("file").to_string();
             self.rect_colors.insert(uid, color.to_string());
-            self.add_asset(&f, solid_png(parse_color(color, (74, 163, 255))));
+            self.add_asset(&f, solid_png(parse_color(color, (255, 146, 72))));
         }
     }
     pub fn add_asset(&mut self, path: &str, bytes: Vec<u8>) { self.doc.assets.insert(path.into(), Arc::new(bytes)); self.touch(); }
@@ -318,7 +318,7 @@ impl Editor {
         let guides = self.guides;
         let screen = self.doc.screen;
         let view = self.view_pix.as_mut()?;
-        view.fill(Color::from_rgba8(14, 16, 20, 255));
+        view.fill(Color::from_rgba8(9, 9, 11, 255));
         if let Some(sp) = self.scene_pix.as_ref() {
             let quality = if zoom < 1.0 { FilterQuality::Bilinear } else { FilterQuality::Nearest };
             view.draw_pixmap(0, 0, sp.as_ref(), &PixmapPaint { quality, ..Default::default() }, Transform::from_row(zoom, 0., 0., zoom, pan.0 as f32, pan.1 as f32), None);
@@ -329,11 +329,11 @@ impl Editor {
         let frame = |view: &mut Pixmap, x: f32, y: f32, w: f32, h: f32, c: (u8, u8, u8), t: f32| {
             rect_px(view, x, y, w, t, c); rect_px(view, x, y + h - t, w, t, c); rect_px(view, x, y, t, h, c); rect_px(view, x + w - t, y, t, h, c);
         };
-        frame(view, pan.0 as f32 - 1., pan.1 as f32 - 1., screen.0 as f32 * zoom + 2., screen.1 as f32 * zoom + 2., (58, 67, 87), 1.);
+        frame(view, pan.0 as f32 - 1., pan.1 as f32 - 1., screen.0 as f32 * zoom + 2., screen.1 as f32 * zoom + 2., (39, 39, 42), 1.);
         if let Some(r) = sel_rect {
             let (x, y, w, h) = (pan.0 as f32 + r.x as f32 * zoom, pan.1 as f32 + r.y as f32 * zoom, r.w as f32 * zoom, r.h as f32 * zoom);
-            frame(view, x, y, w, h, (74, 163, 255), 2.);
-            if !sel_locked { for (_, fx, fy) in HANDLES { let (hx, hy) = (x + w * fx - 4., y + h * fy - 4.); rect_px(view, hx - 1., hy - 1., 10., 10., (74, 163, 255)); rect_px(view, hx, hy, 8., 8., (255, 255, 255)); } }
+            frame(view, x, y, w, h, (255, 146, 72), 2.);
+            if !sel_locked { for (_, fx, fy) in HANDLES { let (hx, hy) = (x + w * fx - 4., y + h * fy - 4.); rect_px(view, hx - 1., hy - 1., 10., 10., (255, 146, 72)); rect_px(view, hx, hy, 8., 8., (255, 255, 255)); } }
         }
         if let Some(gx) = guides.0 { rect_px(view, pan.0 as f32 + gx as f32 * zoom, 0., 1., h as f32, (255, 79, 163)); }
         if let Some(gy) = guides.1 { rect_px(view, 0., pan.1 as f32 + gy as f32 * zoom, w as f32, 1., (255, 79, 163)); }

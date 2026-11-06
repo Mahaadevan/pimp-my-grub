@@ -9,3 +9,6 @@ install -Dm644 "$HERE/packaging/dev.pimpmygrub.policy" "$D$P/share/polkit-1/acti
 install -Dm644 "$HERE/packaging/dev.pimpmygrub.PimpMyGrub.desktop" "$D$P/share/applications/dev.pimpmygrub.PimpMyGrub.desktop"
 install -Dm644 "$HERE/packaging/dev.pimpmygrub.PimpMyGrub.metainfo.xml" "$D$P/share/metainfo/dev.pimpmygrub.PimpMyGrub.metainfo.xml"
 install -Dm644 "$HERE/packaging/pimp-my-grub.png" "$D$P/share/icons/hicolor/512x512/apps/pimp-my-grub.png"
+for S in 256 128 64 48 32; do
+  install -Dm644 "$HERE/packaging/icons/pimp-my-grub-$S.png" "$D$P/share/icons/hicolor/${S}x${S}/apps/pimp-my-grub.png"
+done

@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.png" width="96" alt="Pimp my grub icon"></p>
+
 # Pimp my grub
 
 **A native Linux app to design GRUB boot themes visually, browse a theme store, and install a theme safely.**

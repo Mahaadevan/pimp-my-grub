@@ -4,41 +4,43 @@ import QtQuick.Layouts
 import dev.pimpmygrub
 
 RowLayout {
+    readonly property var t: Tokens {}
     id: page
     property var backend
     signal message(string m)
     spacing: 0
 
     Pane {
-        Layout.preferredWidth: 230; Layout.fillHeight: true; padding: 0
+        Layout.preferredWidth: 240; Layout.fillHeight: true; padding: 0
+        background: Rectangle { color: t.surface }
         LayersPanel { anchors.fill: parent; backend: page.backend }
     }
-    ToolSeparator { Layout.fillHeight: true; padding: 0 }
+    Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: t.border }
 
     ColumnLayout {
         Layout.fillWidth: true; Layout.fillHeight: true; spacing: 0
         Rectangle {
             Layout.fillWidth: true; Layout.fillHeight: false
-            Layout.preferredHeight: bar.implicitHeight + 8
-            color: palette.window
-            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: palette.mid }
+            Layout.preferredHeight: bar.implicitHeight + 12
+            color: t.surface
+            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: t.border }
             Flow {
                 id: bar
-                x: 4; y: 4; width: parent.width - 8; spacing: 4
+                x: 8; y: 6; width: parent.width - 16; spacing: 6
                 Repeater {
                     model: [["boot_menu", qsTr("Menu")], ["label", qsTr("Label")], ["image", qsTr("Image")], ["rect", qsTr("Rectangle")],
                             ["progress_bar", qsTr("Progress")], ["circular_progress", qsTr("Circular")], ["canvas", qsTr("Group")]]
-                    delegate: Button {
-                        text: "＋ " + modelData[1]; flat: true
-                        onClicked: modelData[0] === "rect" ? page.backend.call("addRect", "#4aa3ff", "") : page.backend.call("add", modelData[0], "")
+                    delegate: AppButton {
+                        text: "＋ " + modelData[1]
+                        onClicked: modelData[0] === "rect" ? page.backend.call("addRect", "#ff9248", "") : page.backend.call("add", modelData[0], "")
                     }
                 }
-                Label { text: qsTr("Entry"); height: 32; verticalAlignment: Text.AlignVCenter }
-                Slider { width: 80; height: 32; from: 0; to: 4; stepSize: 1; value: 0; onMoved: page.backend.call("menuSel", Math.round(value).toString(), "") }
-                Label { text: qsTr("Timeout"); height: 32; verticalAlignment: Text.AlignVCenter }
-                Slider { width: 80; height: 32; from: 0; to: 1; value: 0.6; onMoved: page.backend.call("progress", value.toString(), "") }
-                Button { text: qsTr("Fit"); flat: true; onClicked: { scene.userView = false; scene.input(4, 0, 0, 0, 0, 0) } }
-                Button { text: qsTr("100%"); flat: true; onClicked: scene.input(5, 0, 0, 0, 0, 0) }
+                Label { text: qsTr("Entry"); height: 32; leftPadding: 8; verticalAlignment: Text.AlignVCenter; color: t.muted }
+                AppSlider { width: 80; height: 32; from: 0; to: 4; stepSize: 1; value: 0; onMoved: page.backend.call("menuSel", Math.round(value).toString(), "") }
+                Label { text: qsTr("Timeout"); height: 32; leftPadding: 4; verticalAlignment: Text.AlignVCenter; color: t.muted }
+                AppSlider { width: 80; height: 32; from: 0; to: 1; value: 0.6; onMoved: page.backend.call("progress", value.toString(), "") }
+                AppButton { text: qsTr("Fit"); flat: true; onClicked: { scene.userView = false; scene.input(4, 0, 0, 0, 0, 0) } }
+                AppButton { text: qsTr("100%"); flat: true; onClicked: scene.input(5, 0, 0, 0, 0, 0) }
             }
         }
 
@@ -82,9 +84,10 @@ RowLayout {
         }
     }
 
-    ToolSeparator { Layout.fillHeight: true; padding: 0 }
+    Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: t.border }
     Pane {
-        Layout.preferredWidth: 300; Layout.fillHeight: true; padding: 0
+        Layout.preferredWidth: 310; Layout.fillHeight: true; padding: 0
+        background: Rectangle { color: t.surface }
         InspectorPanel { anchors.fill: parent; backend: page.backend }
     }
 }
