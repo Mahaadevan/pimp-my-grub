@@ -1,6 +1,5 @@
-<p align="center"><img src="docs/logo.png" width="96" alt="Pimp my grub icon"></p>
-
 # Pimp my grub
+<p align="center"><img src="docs/logo.png" width="96" alt="Pimp my grub icon"></p>
 
 **A native Linux app to design GRUB boot themes visually, browse a theme store, and install a theme safely.**
 Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to you first and can be undone.
