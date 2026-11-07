@@ -26,12 +26,16 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true; Layout.margins: 16; spacing: 8
         AppField { id: search; Layout.fillWidth: true; placeholderText: qsTr("Search themes (name, repo, style)…"); onTextChanged: root.query() }
-        ComboBox { id: sort; model: [qsTr("Most popular"), qsTr("Name")]; onActivated: root.query() }
+        AppComboBox { id: sort; implicitWidth: 150; model: [qsTr("Most popular"), qsTr("Name")]; onActivated: root.query() }
         AppButton { text: qsTr("Search GitHub"); onClicked: root.backend.call("storeGithub", search.text, "")
             ToolTip.text: qsTr("Search every GitHub repository tagged grub-theme"); ToolTip.visible: hovered }
     }
     Label { Layout.fillWidth: true; Layout.leftMargin: 16; visible: root.sd.note !== ""; text: root.sd.note; color: t.warn; wrapMode: Text.Wrap }
-    BusyIndicator { Layout.alignment: Qt.AlignHCenter; running: root.sd.pending > 0; visible: running; implicitHeight: 28 }
+    BusyIndicator { id: spin; Layout.alignment: Qt.AlignHCenter; running: root.sd.pending > 0; visible: running; implicitHeight: 28; implicitWidth: 28
+        contentItem: Item { implicitWidth: 28; implicitHeight: 28
+            Rectangle { anchors.centerIn: parent; width: 22; height: 22; radius: 11; color: "transparent"; border.width: 3; border.color: t.border2
+                Rectangle { width: 6; height: 6; radius: 3; color: t.accent; x: 8; y: -1 }
+                RotationAnimator on rotation { from: 0; to: 360; duration: 900; loops: Animation.Infinite; running: spin.running } } } }
 
     GridView {
         id: grid
@@ -64,7 +68,7 @@ ColumnLayout {
                         Layout.fillWidth: true; Layout.margins: 10; spacing: 4
                         Label { text: model.name; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
                         Label { text: model.repo + "  ★ " + model.stars; color: t.muted; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true }
-                        ComboBox { visible: card.variantList.indexOf("|") >= 0; Layout.fillWidth: true; model: card.variantList.split("|"); onActivated: card.variantIndex = currentIndex }
+                        AppComboBox { visible: card.variantList.indexOf("|") >= 0; Layout.fillWidth: true; model: card.variantList.split("|"); onActivated: card.variantIndex = currentIndex }
                         Item { Layout.fillHeight: true }
                         RowLayout {
                             Layout.fillWidth: true
@@ -78,5 +82,5 @@ ColumnLayout {
             }
         }
     }
-    Label { Layout.alignment: Qt.AlignHCenter; visible: root.sd.pending === 0 && model.count === 0; color: t.muted; text: qsTr("No themes match. Press “Search GitHub” to look beyond the curated list."); padding: 20 }
+    Label { Layout.alignment: Qt.AlignHCenter; visible: root.sd.pending === 0 && model.count === 0; color: t.muted; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; width: parent.width - 40; text: root.sd.note !== "" ? qsTr("Couldn’t load the theme list. Check your internet connection, then restart the Store tab or press “Search GitHub”.") : qsTr("No themes match. Press “Search GitHub” to look beyond the curated list."); padding: 20 }
 }

@@ -35,10 +35,16 @@ RowLayout {
                         onClicked: modelData[0] === "rect" ? page.backend.call("addRect", "#ff9248", "") : page.backend.call("add", modelData[0], "")
                     }
                 }
-                Label { text: qsTr("Entry"); height: 32; leftPadding: 8; verticalAlignment: Text.AlignVCenter; color: t.muted }
-                AppSlider { width: 80; height: 32; from: 0; to: 4; stepSize: 1; value: 0; onMoved: page.backend.call("menuSel", Math.round(value).toString(), "") }
-                Label { text: qsTr("Timeout"); height: 32; leftPadding: 4; verticalAlignment: Text.AlignVCenter; color: t.muted }
-                AppSlider { width: 80; height: 32; from: 0; to: 1; value: 0.6; onMoved: page.backend.call("progress", value.toString(), "") }
+                Row {
+                    spacing: 4; height: 32
+                    Label { text: qsTr("Entry"); height: 32; leftPadding: 8; verticalAlignment: Text.AlignVCenter; color: t.muted }
+                    AppSlider { width: 80; height: 32; from: 0; to: 4; stepSize: 1; value: 0; onMoved: page.backend.call("menuSel", Math.round(value).toString(), "") }
+                }
+                Row {
+                    spacing: 4; height: 32
+                    Label { text: qsTr("Timeout"); height: 32; leftPadding: 4; verticalAlignment: Text.AlignVCenter; color: t.muted }
+                    AppSlider { width: 80; height: 32; from: 0; to: 1; value: 0.6; onMoved: page.backend.call("progress", value.toString(), "") }
+                }
                 AppButton { text: qsTr("Fit"); flat: true; onClicked: { scene.userView = false; scene.input(4, 0, 0, 0, 0, 0) } }
                 AppButton { text: qsTr("100%"); flat: true; onClicked: scene.input(5, 0, 0, 0, 0, 0) }
             }
@@ -52,7 +58,7 @@ RowLayout {
             function autoFit() { if (!userView && width > 100 && height > 100) Qt.callLater(function() { scene.input(4, 0, 0, 0, 0, 0) }) }
             onWidthChanged: autoFit()
             onHeightChanged: autoFit()
-            onEdited: page.backend.call("select", "", "")  // no-op call keeps panels in sync through rev
+            onEdited: page.backend.call("touch", "", "")  // changes nothing; bumps rev so the panels refresh
             Connections { target: page.backend; function onRevChanged() { scene.update() } }
 
             function flags(m) { return (m.modifiers & Qt.ControlModifier ? 1 : 0) | (m.modifiers & Qt.ShiftModifier ? 2 : 0) | (m.modifiers & Qt.AltModifier ? 4 : 0) }

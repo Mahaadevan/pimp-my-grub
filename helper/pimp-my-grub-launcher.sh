@@ -18,7 +18,14 @@ rc=$?
 [ $(( $(date +%s) - start )) -gt 10 ] && exit "$rc"     # it ran for a while: a crash later, not a startup failure
 
 msg="Pimp my grub could not start (exit code $rc)."
-if grep -qE "undefined symbol|version .Qt_6|cannot open shared object|GLIBC_" "$LOG" 2>/dev/null; then
+if grep -qE "is not installed|QML module" "$LOG" 2>/dev/null; then
+  msg="$msg
+
+A Qt 6 QML module is missing. On Debian/Ubuntu install:
+  sudo apt install qml6-module-qtquick-controls qml6-module-qtquick-layouts qml6-module-qtquick-dialogs \\
+    qml6-module-qtquick-templates qml6-module-qtquick-window qml6-module-qtqml-workerscript
+On other distros install the full qt6-declarative package, or use the AppImage."
+elif grep -qE "undefined symbol|version .Qt_6|cannot open shared object|GLIBC_" "$LOG" 2>/dev/null; then
   msg="$msg
 
 This build was made for a different Qt 6 / system library version than the one installed here.

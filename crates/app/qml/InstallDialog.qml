@@ -33,7 +33,7 @@ Dialog {
     footer: ColumnLayout {
         visible: s.phase === "review" && s.plan && !s.plan.fatal
         spacing: 4
-        CheckBox { Layout.leftMargin: 12; Layout.rightMargin: 12; text: qsTr("I understand these files will be changed and that a backup is created first."); checked: dlg.agree; onToggled: dlg.agree = checked }
+        AppCheckBox { Layout.leftMargin: 12; Layout.rightMargin: 12; text: qsTr("I understand these files will be changed and that a backup is created first."); checked: dlg.agree; onToggled: dlg.agree = checked }
         RowLayout { Layout.margins: 12; Layout.topMargin: 0
             Item { Layout.fillWidth: true }
             AppButton { text: qsTr("Cancel"); onClicked: dlg.close() }
@@ -58,7 +58,7 @@ Dialog {
                     Label { text: qsTr("Theme name") }
                     AppField { id: nameField; Layout.fillWidth: true; onEditingFinished: if (dlg.nameOk) dlg.plan() }
                     Label { text: qsTr("Resolution") }
-                    ComboBox { Layout.fillWidth: true; model: ["auto", "1920x1080,auto", "2560x1440,auto", "1366x768,auto", "1280x720,auto", "1024x768,auto"]; currentIndex: 1
+                    AppComboBox { Layout.fillWidth: true; model: ["auto", "1920x1080,auto", "2560x1440,auto", "1366x768,auto", "1280x720,auto", "1024x768,auto"]; currentIndex: 1
                         onActivated: { dlg.gfx = currentText; dlg.plan() } Component.onCompleted: dlg.gfx = currentText }
                 }
                 Label { visible: !dlg.nameOk; color: t.danger; text: qsTr("Use letters, digits, dot, dash or underscore (max 48).") }
@@ -67,7 +67,7 @@ Dialog {
                 ColumnLayout { visible: s.plan && !s.plan.fatal; Layout.fillWidth: true; spacing: 8
                     Label { text: qsTr("These system files will be changed"); font.bold: true }
                     Repeater { model: s.plan ? s.plan.changes : []
-                        delegate: Frame { Layout.fillWidth: true
+                        delegate: Frame { Layout.fillWidth: true; background: Rectangle { radius: 10; color: t.surface2; border.color: t.border }
                             RowLayout { width: parent.width; spacing: 10
                                 Label { text: modelData.action.toUpperCase(); font.bold: true; font.pixelSize: 10; font.letterSpacing: 0.6; color: t.accent; Layout.preferredWidth: 64 }
                                 ColumnLayout { Layout.fillWidth: true; spacing: 2
@@ -76,7 +76,8 @@ Dialog {
                     Repeater { model: s.plan ? s.plan.warns : []; delegate: Label { text: "⚠ " + modelData; color: t.warn; wrapMode: Text.Wrap; Layout.fillWidth: true } }
                     Label { text: qsTr("Exact edit to /etc/default/grub"); font.bold: true }
                     ScrollView { Layout.fillWidth: true; Layout.preferredHeight: 150; clip: true
-                        TextArea { readOnly: true; font.family: "monospace"; font.pixelSize: 12; text: s.plan ? s.plan.diff : ""; wrapMode: TextArea.NoWrap } }
+                        TextArea { readOnly: true; font.family: t.mono; font.pixelSize: 12; color: t.text; text: s.plan ? s.plan.diff : ""; wrapMode: TextArea.NoWrap
+                            background: Rectangle { color: t.bg; radius: 8; border.width: 1; border.color: t.border } } }
                     Frame { Layout.fillWidth: true
                         Label { width: parent.width; wrapMode: Text.Wrap; font.pixelSize: 12
                             text: qsTr("<b>If something looks wrong later</b><br>• Open <i>Manage</i> → <i>Undo last change</i>.<br>• Original files stay in <code>/var/lib/pimp-my-grub/original/</code>. Copy <code>default-grub</code> back to <code>/etc/default/grub</code>, then run <code>sudo update-grub</code> (Debian/Ubuntu) or <code>sudo grub2-mkconfig -o /boot/grub2/grub.cfg</code> (Fedora/openSUSE).<br>• From a live USB: mount your system, restore <code>/etc/default/grub</code> and regenerate the config.") } }
@@ -87,7 +88,13 @@ Dialog {
             // ---- applying
             ColumnLayout { visible: s.phase === "applying"; Layout.fillWidth: true
                 Label { text: qsTr("Working… approve the password prompt if it appears. Do not power off."); opacity: 0.8; wrapMode: Text.Wrap; Layout.fillWidth: true }
-                ProgressBar { indeterminate: true; Layout.fillWidth: true }
+                ProgressBar { indeterminate: true; Layout.fillWidth: true
+                    background: Rectangle { implicitHeight: 6; radius: 3; color: t.border }
+                    contentItem: Item { implicitHeight: 6; clip: true
+                        Rectangle { id: bar; width: parent.width * 0.3; height: 6; radius: 3; color: t.accent
+                            SequentialAnimation on x { loops: Animation.Infinite; running: true
+                                NumberAnimation { from: 0; to: bar.parent.width * 0.7; duration: 800; easing.type: Easing.InOutQuad }
+                                NumberAnimation { from: bar.parent.width * 0.7; to: 0; duration: 800; easing.type: Easing.InOutQuad } } } } }
                 Repeater { model: s.live; delegate: Label { text: (index === s.live.length - 1 ? "… " : "✓ ") + modelData } } }
 
             // ---- done

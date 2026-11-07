@@ -8,4 +8,4 @@ Icon=pimp-my-grub
 Terminal=false
 Categories=Utility;System;Settings;
 Keywords=grub;theme;boot;bootloader;
-StartupWMClass=pimp-my-grub
+StartupWMClass=pimp-my-grub-bin

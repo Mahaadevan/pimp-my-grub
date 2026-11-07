@@ -2,7 +2,7 @@
 mod backend;
 mod scene_item;
 
-use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QUrl};
+use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QString, QUrl};
 
 fn main() {
     // The UI draws its own dark GrubStudio-style look, which needs a style that allows full customisation.
@@ -20,11 +20,22 @@ fn main() {
         }
     }
     let mut app = QGuiApplication::new();
+    // Lets Wayland/X11 shells match the window to dev.pimpmygrub.PimpMyGrub.desktop (icon, name) even though the
+    // real binary is called pimp-my-grub-bin.
+    QGuiApplication::set_desktop_file_name(&QString::from("dev.pimpmygrub.PimpMyGrub"));
     let mut engine = QQmlApplicationEngine::new();
-    if let Some(engine) = engine.as_mut() {
+    if let Some(mut engine) = engine.as_mut() {
+        // Without this a QML load failure (typically a missing qml6-module-* package) leaves the process with no
+        // window and exit code 0, so the app "does nothing". Fail loudly and non-zero instead; the launcher turns
+        // that into a dialog.
+        engine.as_mut().on_object_creation_failed(|_, url| {
+            eprintln!("pimp-my-grub: could not load the user interface ({}).", url.to_string());
+            eprintln!("pimp-my-grub: a Qt 6 QML module is probably missing. On Debian/Ubuntu install: qml6-module-qtquick-controls qml6-module-qtquick-layouts qml6-module-qtquick-dialogs qml6-module-qtquick-templates qml6-module-qtquick-window qml6-module-qtqml-workerscript");
+            std::process::exit(1);
+        }).release();
         engine.load(&QUrl::from("qrc:/qt/qml/dev/pimpmygrub/qml/Main.qml"));
     }
     if let Some(app) = app.as_mut() {
-        app.exec();
+        std::process::exit(app.exec());
     }
 }

@@ -23,7 +23,7 @@ ScrollView {
         onAccepted: { var r = backend.call("addAsset", selectedFile.toString(), ""); if (r.indexOf("ERR:") === 0) root.note = r.substring(4); else root.set(root.target, r) } }
     FileDialog { id: fontDlg; nameFilters: ["Fonts (*.ttf *.otf)"]
         onAccepted: sizeDlg.open() }
-    Dialog { id: sizeDlg; title: qsTr("Font size"); standardButtons: Dialog.Ok | Dialog.Cancel; modal: true; anchors.centerIn: Overlay.overlay
+    AppDialog { id: sizeDlg; title: qsTr("Font size"); standardButtons: Dialog.Ok | Dialog.Cancel
         SpinBox { id: sizeBox; from: 8; to: 160; value: 24; editable: true }
         onAccepted: { var r = backend.call("addFont", fontDlg.selectedFile.toString(), sizeBox.value.toString()); if (r.indexOf("ERR:") === 0) root.note = r.substring(4); else { root.note = qsTr("Font added: %1").arg(r); if (root.target) root.set(root.target, r) } } }
 
@@ -91,14 +91,14 @@ ScrollView {
         Label { visible: root.note !== ""; text: root.note; Layout.margins: 14; Layout.fillWidth: true; wrapMode: Text.Wrap; color: t.warn }
     }
 
-    Dialog { id: styleDlg; title: qsTr("Solid-colour style"); standardButtons: Dialog.Ok | Dialog.Cancel; modal: true; anchors.centerIn: Overlay.overlay
+    AppDialog { id: styleDlg; title: qsTr("Solid-colour style"); standardButtons: Dialog.Ok | Dialog.Cancel
         AppField { id: styleColor; text: "#2f7fd6"; placeholderText: "#rrggbb" }
         onAccepted: backend.call("solidStyle", root.target, styleColor.text) }
 
     Component { id: textField
         AppField { text: f.value; selectByMouse: true; onEditingFinished: root.set(f.key, text) } }
     Component { id: boolField
-        CheckBox { checked: f.value === "true"; onToggled: root.set(f.key, checked ? "true" : "false") } }
+        AppCheckBox { checked: f.value === "true"; onToggled: root.set(f.key, checked ? "true" : "false") } }
     Component { id: colorField
         RowLayout { spacing: 6
             Rectangle { width: 32; height: 32; radius: 8; border.color: t.border2; color: /^#[0-9a-fA-F]{3,8}$/.test(f.value) ? f.value : "#ffffff"
@@ -106,11 +106,9 @@ ScrollView {
             AppField { Layout.fillWidth: true; visible: f.kind === "color"; text: f.value; selectByMouse: true; onEditingFinished: root.set(f.key, text) }
         } }
     Component { id: comboField
-        ComboBox {
-            editable: f.kind === "font"
+        AppComboBox {
             model: f.kind === "file" || f.kind === "style" ? [""].concat(f.options) : (f.options.indexOf(f.value) < 0 && f.value !== "" ? [f.value].concat(f.options) : f.options)
             currentIndex: Math.max(0, find(f.value))
             onActivated: root.set(f.key, currentText)
-            onAccepted: if (editable) root.set(f.key, editText)
         } }
 }

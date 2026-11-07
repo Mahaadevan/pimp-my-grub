@@ -21,9 +21,10 @@ ApplicationWindow {
 
     Backend { id: backend }
     property var st: ({ undo: false, redo: false, name: "" })
+    property string appVersion: ""
     function refresh() { st = JSON.parse(backend.call("status", "", "")) }
     Connections { target: backend; function onRevChanged() { win.refresh() } }
-    Component.onCompleted: { refresh(); backend.call("storeInit", "", "") }
+    Component.onCompleted: { refresh(); appVersion = backend.call("version", "", ""); backend.call("storeInit", "", "") }
 
     function say(msg) { toast.text = msg; toast.visible = true; toastTimer.restart() }
     function result(r, ok) { if (r.indexOf("ERR:") === 0) say(r.substring(4)); else if (ok) say(ok) }
@@ -92,6 +93,8 @@ ApplicationWindow {
             Label { text: win.st.name !== "" ? win.st.name : qsTr("Untitled theme"); font.pixelSize: 11; color: t.muted; elide: Text.ElideRight; Layout.maximumWidth: 260 }
             Label { text: "•"; font.pixelSize: 11; color: t.muted2 }
             Label { text: qsTr("GRUB theme"); font.pixelSize: 11; color: t.muted }
+            Label { text: "•"; font.pixelSize: 11; color: t.muted2; visible: win.appVersion !== "" }
+            Label { text: "v" + win.appVersion; font.pixelSize: 11; color: t.muted; visible: win.appVersion !== "" }
         }
     }
 

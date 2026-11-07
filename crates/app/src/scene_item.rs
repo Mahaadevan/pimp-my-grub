@@ -46,6 +46,10 @@ pub mod qobject {
         #[qsignal]
         fn edited(self: Pin<&mut Self>);
     }
+
+    // A zero-argument constructor. The generated default one is `SceneItem(QObject* parent)`, which does not compile
+    // against QQuickPaintedItem(QQuickItem*) without `-fpermissive` (a GCC-only flag, so clang builds failed).
+    impl cxx_qt::Constructor<(), BaseArguments = (), NewArguments = ()> for SceneItem {}
 }
 
 use core::pin::Pin;
@@ -53,6 +57,14 @@ use cxx_qt_lib::{QImage, QImageFormat, QRect, QString};
 
 #[derive(Default)]
 pub struct SceneItemRust {}
+
+impl cxx_qt::Constructor<()> for qobject::SceneItem {
+    type BaseArguments = ();
+    type InitializeArguments = ();
+    type NewArguments = ();
+    fn route_arguments(_: ()) -> (Self::NewArguments, Self::BaseArguments, Self::InitializeArguments) { ((), (), ()) }
+    fn new(_: ()) -> SceneItemRust { SceneItemRust::default() }
+}
 
 extern "C" fn no_cleanup(_: *mut cxx_qt_lib::c_void) {}
 

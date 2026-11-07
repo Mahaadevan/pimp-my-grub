@@ -50,8 +50,9 @@ fn percent_decode(s: &str) -> String {
     let mut out = Vec::with_capacity(b.len());
     let mut i = 0;
     while i < b.len() {
-        if b[i] == b'%' && i + 2 < b.len() + 0 {
-            if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) { out.push(v); i += 3; continue; }
+        if b[i] == b'%' && i + 2 < b.len() && b[i + 1].is_ascii_hexdigit() && b[i + 2].is_ascii_hexdigit() {
+            // Work on bytes: slicing the &str here could panic when a multi-byte character follows the '%'.
+            if let Some(v) = std::str::from_utf8(&b[i + 1..i + 3]).ok().and_then(|h| u8::from_str_radix(h, 16).ok()) { out.push(v); i += 3; continue; }
         }
         out.push(b[i]); i += 1;
     }
@@ -234,6 +235,10 @@ impl qobject::Backend {
             "duplicate" => { let mut e = ed(); if let Some(u) = e.selected { e.duplicate(u); } String::new() }
             "reorder" => { let mut e = ed(); if let Some(u) = e.selected { e.reorder(u, a.parse().unwrap_or(1)); } String::new() }
             "select" => { ed().selected = a.parse().ok(); String::new() }
+            // Changes nothing; only bumps `rev` so the panels refresh after a canvas edit. (The canvas used to call
+            // "select" with an empty id for this, which silently cleared the selection on every click.)
+            "touch" => String::new(),
+            "version" => { mutated = false; env!("CARGO_PKG_VERSION").to_string() }
             "toggle" => { if let Ok(u) = a.parse() { ed().toggle(u, b == "locked"); } String::new() }
             "setField" => { ed().set_field(&a, &b); String::new() }
             "rectColor" => { let mut e = ed(); if let Some(u) = e.selected { e.recolor_rect(u, &a); } String::new() }

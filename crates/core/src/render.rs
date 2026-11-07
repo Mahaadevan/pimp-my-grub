@@ -62,11 +62,16 @@ fn decode(bytes: &[u8]) -> Option<Pixmap> {
     Pixmap::from_vec(data, tiny_skia::IntSize::from_wh(w, h)?)
 }
 
+/// Compact built-in PF2 (Latin, Greek, Cyrillic; GNU Unifont, 16 px). Used when no GRUB font is installed, so previews
+/// always show real text instead of grey bars (AppImage, Flatpak, or a machine without GRUB).
+const BUILTIN_FONT: &[u8] = include_bytes!("../assets/fallback.pf2");
+
 fn load_fallback_font() -> Option<Pf2> {
+    // Prefer the system's full Unicode font when GRUB is installed; otherwise use the built-in one.
     for p in ["/usr/share/grub/unicode.pf2", "/usr/share/grub2/unicode.pf2", "/boot/grub/fonts/unicode.pf2", "/boot/grub2/fonts/unicode.pf2", "/usr/share/grub/ascii.pf2"] {
         if let Ok(b) = std::fs::read(p) { if let Some(f) = pf2::parse(&b) { return Some(f); } }
     }
-    None
+    pf2::parse(BUILTIN_FONT)
 }
 
 /// Pixel-exact rectangle fill, clipped to the pixmap (no anti-aliasing: faster and crisp).

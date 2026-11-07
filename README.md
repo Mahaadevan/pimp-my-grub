@@ -9,7 +9,7 @@ Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to yo
 
 ![Install confirmation: exact files and diff, backup, consent](docs/screenshots/install-confirm.png)
 
-> **Status: early (v0.2).** The editor, store UI and installer are working and tested in a sandbox, but the real
+> **Status: early (v0.2.1).** The editor, store UI and installer are working and tested in a sandbox, but the real
 > apply-to-`/boot` path has **not** been exercised on real hardware yet. Try it in a VM first. See [Status](#status-what-is-and-isnt-verified).
 
 ## Why this exists
@@ -57,7 +57,7 @@ HyperFluent, CyberGRUB-2077, Sidonia). Themes stay in their own repositories und
 - **Manage:** *Undo last change* or *Remove all* at any time.
 - **Light:** CPU rendering only when something changes (no frame loop, no GPU needed), a virtualised store grid with downscaled
   async thumbnails, one small native executable.
-- **Native look:** KDE gets the `org.kde.desktop` Controls style, other desktops get Fusion (system palette); native file dialogs.
+- **Look:** a built-in dark theme with an orange accent, drawn with Qt Quick Controls' `Basic` style so it looks the same on every desktop (set `QT_QUICK_CONTROLS_STYLE` to override).
 
 ## Safety model
 | Step | Guarantee |
@@ -91,12 +91,14 @@ open the packaging directory in terminal and run `sh build-binary.sh`
 Flatpak is intentionally not offered: a sandbox cannot run polkit against `/boot`.
 
 ## Build from source
-Rust 1.85+, Qt 6 (Quick, Quick Controls 2, Dialogs), clang, and `grub-common` (for the default preview font).
+Rust 1.85+, Qt 6 (Quick, Quick Controls 2, Dialogs), clang. `grub-common` is optional at build time: previews use a built-in
+font, or GRUB's full `unicode.pf2` when it is installed; `grub-mkfont` (from `grub-common`) is only needed to convert your own fonts.
 ```bash
 # Debian/Ubuntu 24.04+
-sudo apt install qt6-base-dev qt6-declarative-dev clang libclang-dev grub-common \
+sudo apt install qt6-base-dev qt6-declarative-dev clang libclang-dev \
   qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
-  qml6-module-qtquick-dialogs qml6-module-qtquick-templates qml6-module-qtquick-window
+  qml6-module-qtquick-dialogs qml6-module-qtquick-templates qml6-module-qtquick-window \
+  qml6-module-qtqml-workerscript
 # Fedora: qt6-qtbase-devel qt6-qtdeclarative-devel clang-devel     Arch: qt6-base qt6-declarative clang
 
 QMAKE=$(command -v qmake6) cargo build --release -p pimp-my-grub
@@ -104,7 +106,13 @@ QMAKE=$(command -v qmake6) cargo build --release -p pimp-my-grub
 ```
 Tests: `cargo test -p pimp-my-grub-core && sh tests/helper.test.sh`.
 `PIMPMYGRUB_CATALOG=catalog.json` replaces the bundled store catalog (offline mirrors, testing).
-Note: the first build compiles the Qt bindings (`cxx-qt-lib`) and takes about ten minutes.
+Note: the first build compiles the Qt bindings (`cxx-qt-lib`) and takes about ten minutes (longer on one core).
+
+### The app does nothing when started
+Run `pimp-my-grub` from a terminal. If it prints `module "QtQuick.Dialogs" is not installed` (or another module), install the
+`qml6-module-*` packages listed above (Debian/Ubuntu) or the full `qt6-declarative` package (Fedora/Arch/openSUSE).
+Started from the app menu, a failure now shows an error dialog and writes `~/.cache/pimp-my-grub/last-run.log`.
+Release binaries built against Qt private API only run on the same Qt 6 minor version; use the AppImage elsewhere.
 
 ## Repository layout
 ```
