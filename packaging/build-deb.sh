@@ -2,6 +2,7 @@
 # Builds pimp-my-grub_<ver>_<arch>.deb (Debian 13+, Ubuntu 24.04+, Mint 22+). Run after `cargo build --release`.
 set -eu
 HERE=$(cd "$(dirname "$0")/.." && pwd)
+[ -x "$HERE/target/release/pimp-my-grub" ] || { echo "error: target/release/pimp-my-grub not built yet. Run: sh packaging/build-release.sh   (or: QMAKE=$(command -v qmake6) cargo build --release -p pimp-my-grub)" >&2; exit 1; }
 VER=$(sed -n 's/^version = "\(.*\)"/\1/p' "$HERE/Cargo.toml" | head -n1)
 ARCH=$(dpkg --print-architecture)
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT

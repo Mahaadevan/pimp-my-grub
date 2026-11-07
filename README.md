@@ -105,14 +105,6 @@ Tests: `cargo test -p pimp-my-grub-core && sh tests/helper.test.sh`.
 `PIMPMYGRUB_CATALOG=catalog.json` replaces the bundled store catalog (offline mirrors, testing).
 Note: the first build compiles the Qt bindings (`cxx-qt-lib`) and takes about ten minutes.
 
-> **Build prerequisite:** the packaging scripts (`sh packaging/build-deb.sh` and the other
-> `packaging/*.sh` files) expect `target/release/pimp-my-grub` to be the compiled **binary**,
-> not an empty directory. Run `cargo build --release -p pimp-my-grub` first (after the above
-> install steps) so the release executable exists at `target/release/pimp-my-grub`.
-> If it is an empty directory instead of a file, the packaging scripts fail immediately:
-> `install: omitting directory '.../target/release/pimp-my-grub'` (exit 1), so no `.deb` is
-> produced. Build the binary first, then run the packaging script.
-
 ## Repository layout
 ```
 crates/core/   engine, no GUI deps: theme.txt model, PF2 reader, tiny-skia renderer, editor + undo, store, installer client

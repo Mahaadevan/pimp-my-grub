@@ -14,10 +14,11 @@ Visual GRUB theme editor with a theme store and a reversible installer that show
 every change and asks for confirmation before touching /boot or /etc.
 
 %prep
-%autosetup
+%autosetup -n %{name}-%{version}
 
 %build
-cargo build --release -p pimp-my-grub
+export QMAKE=${QMAKE:-/usr/bin/qmake6}
+cargo build --release --locked -p pimp-my-grub
 
 %install
 sh packaging/install.sh %{buildroot} %{_prefix}
