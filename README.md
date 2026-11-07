@@ -15,7 +15,7 @@ Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to yo
 
 *The store screenshots use a small offline demo catalog (made-up themes) so they can be reproduced without a network connection.*
 
-> **Status: early (v0.3.1).** The editor, store UI and installer are working and tested in a sandbox, but the real
+> **Status: early (v0.3.2).** The editor, store UI and installer are working and tested in a sandbox, but the real
 > apply-to-`/boot` path has **not** been exercised on real hardware yet. Try it in a VM first. See [Status](#status-what-is-and-isnt-verified).
 
 ## Why this exists
@@ -52,7 +52,7 @@ HyperFluent, CyberGRUB-2077, Sidonia). Themes stay in their own repositories und
 ## Features
 - **Editor:** layers, drag/resize with snap guides, undo/redo, zoom/pan, inspector, preview sizes (1920×1080 … 800×600).
   Percent-based positions such as `50%-120` survive dragging. Components: boot menu, label, image, rectangle, progress bar,
-  circular progress, groups. Floating zoom controls (− / + / fit / **centre**, also `+` `-` `0` `C`) bring back a view you scrolled away. The countdown preview (Timeout) is a number you type (0-100 %; Up/Down or the mouse wheel step by 5).
+  circular progress, groups. Floating zoom controls (− / + / fit / **centre**, also `+` `-` `0` `C`) bring back a view you scrolled away. Every numeric field (position and size, item height/padding/spacing, Timeout, font size ...) has up/down arrow buttons: click, hold to repeat, Shift for bigger steps. The countdown preview (Timeout) is a number you type or step (0-100 %).
 - **Accurate preview:** real GRUB `.pf2` fonts are drawn glyph by glyph (so text looks like it will at boot), 9-slice
   `select_*.png` styles, icons and progress bars. TTF/OTF → PF2 conversion uses GRUB's own `grub-mkfont`.
 - **Store:** search, sort by popularity, cards with lazily loaded thumbnails and a resolution picker, *Edit* or *Install* in one click,

@@ -43,16 +43,16 @@ RowLayout {
                 Row {
                     spacing: 6; height: 32
                     Label { text: qsTr("Timeout"); height: 32; leftPadding: 4; verticalAlignment: Text.AlignVCenter; color: t.muted }
-                    // Type the countdown progress to preview (0-100 %); Up/Down arrows or the mouse wheel step it by 5.
-                    AppField {
-                        id: timeoutBox; width: 58; height: 32; horizontalAlignment: TextInput.AlignHCenter
-                        text: "60"; inputMethodHints: Qt.ImhDigitsOnly; selectByMouse: true
+                    // Type the countdown progress to preview (0-100 %), or use the arrow buttons / Up / Down / mouse wheel (step 5).
+                    AppStepper {
+                        id: timeoutBox; width: 76; height: 32; horizontalAlignment: TextInput.AlignHCenter
+                        text: "60"; inputMethodHints: Qt.ImhDigitsOnly
+                        step: 5; bigStep: 10; minValue: 0; maxValue: 100
                         validator: IntValidator { bottom: 0; top: 100 }
                         function apply(v) { v = Math.max(0, Math.min(100, v)); text = v.toString(); page.backend.call("progress", (v / 100).toString(), "") }
+                        onStepped: (v) => apply(parseInt(v))
                         onTextEdited: if (text !== "") page.backend.call("progress", (Math.min(100, parseInt(text)) / 100).toString(), "")
                         onEditingFinished: apply(text === "" ? 0 : parseInt(text))
-                        Keys.onUpPressed: apply((parseInt(text) || 0) + 5)
-                        Keys.onDownPressed: apply((parseInt(text) || 0) - 5)
                         WheelHandler { onWheel: function(ev) { timeoutBox.apply((parseInt(timeoutBox.text) || 0) + (ev.angleDelta.y > 0 ? 5 : -5)) } }
                     }
                     Label { text: "%"; height: 32; verticalAlignment: Text.AlignVCenter; color: t.muted }

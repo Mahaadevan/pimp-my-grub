@@ -1,5 +1,5 @@
 Name:           pimp-my-grub
-Version:        0.3.1
+Version:        0.3.2
 Release:        1%{?dist}
 Summary:        Native Qt 6 GRUB theme builder
 License:        GPL-3.0-or-later

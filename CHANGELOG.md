@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.2
+- **New:** up/down arrow buttons on every numeric field: Timeout, position and size (X, Y, Width, Height), item height,
+  padding, spacing, icon sizes, ticks, start angle, and the font size when adding a font. Click to step by 1 (Timeout by 5),
+  hold to repeat, Shift for a bigger step; the Up/Down keys work too. Percentages (`30%`) and GRUB expressions (`50%-300`)
+  are stepped as well (for an expression the pixel offset changes).
+- **Fix:** the inspector no longer rebuilds all its fields after each edit, so a field keeps keyboard focus (Tab works) and
+  a held arrow button keeps repeating.
+
 ## 0.3.1
 - **New:** floating view controls on the editor canvas: zoom out (−), a zoom read-out (click it for 100 %), zoom in (+),
   fit to window and **Centre**. Centre puts the screen back in the middle of the view without changing the zoom, which
