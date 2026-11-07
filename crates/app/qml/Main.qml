@@ -14,7 +14,7 @@ ApplicationWindow {
     font.pixelSize: 13
     palette {
         window: t.bg; windowText: t.text; base: t.bg; alternateBase: t.surface; text: t.text
-        button: t.surface2; buttonText: t.text; highlight: t.accent; highlightedText: t.onAccent
+        button: t.surface2; buttonText: t.text; highlight: t.accent; highlightedText: t.accentFg
         mid: t.border; midlight: t.border2; dark: t.border; light: t.border2; shadow: "#000000"
         placeholderText: t.muted2; link: t.accent; toolTipBase: t.surface3; toolTipText: t.text
     }
@@ -49,7 +49,7 @@ ApplicationWindow {
             // brand
             Rectangle {
                 width: 26; height: 26; radius: 7; color: t.accent
-                Text { anchors.centerIn: parent; text: "›_"; color: t.onAccent; font.bold: true; font.pixelSize: 13; font.family: t.mono }
+                Text { anchors.centerIn: parent; text: "›_"; color: t.accentFg; font.bold: true; font.pixelSize: 13; font.family: t.mono }
             }
             Label { text: "Pimp my <font color='" + t.accent + "'>grub</font>"; textFormat: Text.StyledText; font.bold: true; font.pixelSize: 16; Layout.rightMargin: 10 }
             TabBar {

@@ -24,8 +24,8 @@ step "Downloading linuxdeploy Qt plugin"  fetch linuxdeploy-plugin-qt-x86_64.App
 STEP_HINT=
 step "Staging AppDir"                     sh -c 'rm -rf AppDir && PB_QUIET=1 sh ../packaging/install.sh "$PWD/AppDir" /usr'
 STEP_HINT="linuxdeploy needs the Qt QML modules installed system-wide (run: sh packaging/build-binary.sh)."
-step "Bundling Qt and creating the AppImage" ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt --output appimage \
+step "Bundling Qt and creating the AppImage" ./linuxdeploy-x86_64.AppImage --appdir AppDir --executable AppDir/usr/libexec/pimp-my-grub/pimp-my-grub-bin --plugin qt --output appimage \
   -d AppDir/usr/share/applications/dev.pimpmygrub.PimpMyGrub.desktop -i AppDir/usr/share/icons/hicolor/512x512/apps/pimp-my-grub.png
 STEP_HINT=
 step "Checking the result" sh -c 'ls ./*.AppImage'
-say "Wrote build/$(ls *.AppImage | head -n1)"
+report_file "$HERE/build/$(ls *.AppImage | head -n1)"

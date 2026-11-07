@@ -7,7 +7,7 @@ TextField {
     implicitHeight: 32; leftPadding: 10; rightPadding: 10; topPadding: 0; bottomPadding: 0
     font.pixelSize: 13
     color: t.text; placeholderTextColor: t.muted2
-    selectionColor: t.accent; selectedTextColor: t.onAccent
+    selectionColor: t.accent; selectedTextColor: t.accentFg
     verticalAlignment: TextInput.AlignVCenter
     background: Rectangle {
         radius: 8; color: t.bg

@@ -26,6 +26,7 @@ sh packaging/install.sh %{buildroot} %{_prefix}
 %files
 %{_bindir}/pimp-my-grub
 %{_libexecdir}/pimp-my-grub/pimp-my-grub-helper
+%{_libexecdir}/pimp-my-grub/pimp-my-grub-bin
 %{_datadir}/polkit-1/actions/dev.pimpmygrub.policy
 %{_datadir}/applications/dev.pimpmygrub.PimpMyGrub.desktop
 %{_datadir}/metainfo/dev.pimpmygrub.PimpMyGrub.metainfo.xml

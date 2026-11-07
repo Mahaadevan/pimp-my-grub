@@ -6,8 +6,9 @@ D=${1:-}; P=${2:-/usr}
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 . "$HERE/packaging/lib.sh"
 [ -x "$HERE/target/release/pimp-my-grub" ] || die "target/release/pimp-my-grub is missing. Run: sh packaging/build-binary.sh"
-progress_init 8
-step "Installing binary"             install -Dm755 "$HERE/target/release/pimp-my-grub" "$D$P/bin/pimp-my-grub"
+progress_init 9
+step "Installing binary"             install -Dm755 "$HERE/target/release/pimp-my-grub" "$D$P/libexec/pimp-my-grub/pimp-my-grub-bin"
+step "Installing launcher"           install -Dm755 "$HERE/helper/pimp-my-grub-launcher.sh" "$D$P/bin/pimp-my-grub"
 step "Installing root helper"        install -Dm755 "$HERE/helper/pimp-my-grub-helper.sh" "$D$P/libexec/pimp-my-grub/pimp-my-grub-helper"
 step "Installing polkit policy"      install -Dm644 "$HERE/packaging/dev.pimpmygrub.policy" "$D$P/share/polkit-1/actions/dev.pimpmygrub.policy"
 step "Installing desktop entry"      install -Dm644 "$HERE/packaging/dev.pimpmygrub.PimpMyGrub.desktop" "$D$P/share/applications/dev.pimpmygrub.PimpMyGrub.desktop"

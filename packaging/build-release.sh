@@ -16,9 +16,9 @@ say "== Step 2: packages ($WANT)"
 for w in $WANT; do
   case "$w" in
     deb)
-      sh packaging/build-deb.sh && mv -f ./*.deb dist/ ;;
+      PB_NOREPORT=1 sh packaging/build-deb.sh && mv -f ./*.deb dist/ ;;
     appimage)
-      sh packaging/build-appimage.sh && mv -f build/*.AppImage dist/ ;;
+      PB_NOREPORT=1 sh packaging/build-appimage.sh && mv -f build/*.AppImage dist/ ;;
     rpm)
       need_cmd rpmbuild "Fedora: sudo dnf install rpm-build"
       [ -z "$(git status --porcelain 2>/dev/null)" ] || warn "uncommitted changes: the rpm is built from the last commit (git archive HEAD). Commit first (git add -A && git commit)."
@@ -30,4 +30,7 @@ for w in $WANT; do
       cp "$T"/RPMS/*/*.rpm "$T"/SRPMS/*.rpm dist/ ;;
   esac
 done
-say "== Done:"; ls -lh dist >&2
+say ""
+say "== Done. Release files:"
+for f in dist/*; do [ -f "$f" ] && report_file "$f"; done
+report_file target/release/pimp-my-grub

@@ -12,7 +12,7 @@ Button {
     contentItem: Text {
         text: c.text; font: c.font; elide: Text.ElideRight
         horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-        color: !c.enabled ? t.muted2 : c.highlighted ? t.onAccent : t.text
+        color: !c.enabled ? t.muted2 : c.highlighted ? t.accentFg : t.text
     }
     background: Rectangle {
         radius: 8

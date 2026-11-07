@@ -16,7 +16,7 @@ QtObject {
     readonly property color accentHover: "#ffa566"
     readonly property color accentDown:  "#e87d33"
     readonly property color accentSoft:  Qt.rgba(1, 0.573, 0.282, 0.14)
-    readonly property color onAccent:    "#1a0e04"
+    readonly property color accentFg:    "#1a0e04"
     readonly property color ok:          "#5ccf8b"
     readonly property color warn:        "#e0a030"
     readonly property color danger:      "#ff6b6b"

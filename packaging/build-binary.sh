@@ -128,4 +128,7 @@ STEP_HINT=
 BIN=target/$PROFILE/pimp-my-grub
 verify() { [ -x "$BIN" ]; }   # do not run it: the app has no --version and would open a window
 step "Verifying $BIN" verify
-say "Built $BIN ($(du -h "$BIN" | cut -f1))"
+if command -v readelf >/dev/null 2>&1 && readelf -V "$BIN" 2>/dev/null | grep -q Qt_6_PRIVATE_API; then
+  warn "this binary uses Qt private API (QML compiled ahead of time). It only runs on the same Qt 6 minor version it was built with ($("$QMAKE" -query QT_VERSION 2>/dev/null)); package it with the AppImage (bundles Qt) or build on the oldest Qt you support."
+fi
+report_file "$HERE/$BIN"
