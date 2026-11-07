@@ -79,6 +79,7 @@ prompt names the app. Without it (AppImage, dev builds) the app falls back to `p
 
 ## Install
 Packages (see `packaging/`):
+open the packaging directory in terminal and run `sh build-binary.sh`
 
 | Distro family | Package | Build |
 |---|---|---|
