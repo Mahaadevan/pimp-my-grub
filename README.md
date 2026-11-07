@@ -2,7 +2,7 @@
 
 # Pimp my grub
 
-**A native Linux app to design GRUB boot themes visually, browse a theme store, and install a theme safely.**
+**A native Linux app to design GRUB themes visually, browse a theme store, and install a theme safely.**
 Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to you first and can be undone.
 
 ![Editor](docs/screenshots/editor.png)
@@ -16,14 +16,13 @@ Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to yo
 GRUB themes are a pile of `theme.txt`, PNG slices and `.pf2` fonts that you edit blind and only see after a reboot.
 The goal of this project, as set out at the start:
 
-- build a theme **Figma-style**: drag, resize, snap, layers, inspector, live preview
-- a **store** like KDE Discover: a search bar and preview cards, fed by popular theme repositories
-- ship as a **Linux app** that stays fast on **low-end devices**
+-  **Build a theme**: drag, resize, snap, layers, inspector, live preview
+-  **Theme-Store**: a search bar and preview cards, fed by popular theme repositories (buggy ui)
+-  **Made in Rust** that stays fast on **low-end devices**
 - install themes through a **guided, GRUB-respecting, reversible** flow that can never destroy booting, and tells you
   exactly what it changed in system files, with a **confirmation** step
 
 ## Inspiration and references
-Studied while shaping the project (no code copied; the installer helper and renderer were written from scratch):
 
 | Project | What it inspired |
 |---|---|
@@ -40,7 +39,7 @@ HyperFluent, CyberGRUB-2077, Sidonia). Themes stay in their own repositories und
    combined a curated repo list with GitHub topic search; install went through `pkexec`.
 2. **Rewrite to native:** the requirement changed to *not a web app*, *native for each popular distro*. The result is
    **Qt 6 for the window and Rust for everything else**, with one thin `QQuickPaintedItem` that blits a Rust software renderer.
-   The web prototype was dropped.
+   The web prototype was chucked in my bin of of man-made horrors beyond saving.
 3. **Safety first, taken from Sidonia's approach:** keep GRUB's architecture intact (`/etc/default/grub` + `grub-mkconfig`),
    never hand-edit `grub.cfg`, make every change reversible, and always show what will change before asking for a password.
 
@@ -75,20 +74,11 @@ Manual recovery: copy `/var/lib/pimp-my-grub/original/default-grub` back to `/et
 
 Privileges: packages install `/usr/libexec/pimp-my-grub/pimp-my-grub-helper` and a polkit action (`dev.pimpmygrub.helper`), so the
 prompt names the app. Without it (AppImage, dev builds) the app falls back to `pkexec /bin/sh -c <embedded script>`.
-**Supported:** GRUB 2 on Debian/Ubuntu/Arch/Fedora/openSUSE families. **Not supported:** ostree/immutable systems, systemd-boot, rEFInd.
+**Supported:** GRUB 2 on Debian/Ubuntu/Arch/Fedora/openSUSE families. 
+**Not supported:** ostree/immutable systems, systemd-boot, rEFInd.
 
 ## Install
-Packages (see `packaging/`):
-open the packaging directory in terminal and run `sh build-binary.sh`
-
-| Distro family | Package | Build |
-|---|---|---|
-| Debian, Ubuntu, Mint | `.deb` | `sh packaging/build-deb.sh` |
-| Fedora, openSUSE | `.rpm` | `packaging/pimp-my-grub.spec` |
-| Arch, Manjaro | `PKGBUILD` | `makepkg -si` in `packaging/` |
-| Anything else | AppImage | `packaging/build-appimage.sh` (generic password prompt) |
-
-Flatpak is intentionally not offered: a sandbox cannot run polkit against `/boot`.
+Check Releases(**.deb and .Appimage available**).
 
 ## Build from source
 Rust 1.85+, Qt 6 (Quick, Quick Controls 2, Dialogs), clang. `grub-common` is optional at build time: previews use a built-in
@@ -108,7 +98,19 @@ Tests: `cargo test -p pimp-my-grub-core && sh tests/helper.test.sh`.
 `PIMPMYGRUB_CATALOG=catalog.json` replaces the bundled store catalog (offline mirrors, testing).
 Note: the first build compiles the Qt bindings (`cxx-qt-lib`) and takes about ten minutes (longer on one core).
 
-### The app does nothing when started
+Packages (see `packaging/`):
+open the packaging directory in terminal and run `build-binary.sh`
+
+| Distro family | Package | Build |
+|---|---|---|
+| Debian, Ubuntu, Mint | `.deb` | `sh packaging/build-deb.sh` |
+| Fedora, openSUSE | `.rpm` | `packaging/pimp-my-grub.spec` |
+| Arch, Manjaro | `PKGBUILD` | `makepkg -si` in `packaging/` |
+| Anything else | AppImage | `packaging/build-appimage.sh` |
+
+Flatpak is intentionally not offered: a sandbox cannot run polkit against `/boot`.
+
+### If the app does nothing when started
 Run `pimp-my-grub` from a terminal. If it prints `module "QtQuick.Dialogs" is not installed` (or another module), install the
 `qml6-module-*` packages listed above (Debian/Ubuntu) or the full `qt6-declarative` package (Fedora/Arch/openSUSE).
 Started from the app menu, a failure now shows an error dialog and writes `~/.cache/pimp-my-grub/last-run.log`.
