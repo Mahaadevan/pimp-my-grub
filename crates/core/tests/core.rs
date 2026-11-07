@@ -110,3 +110,29 @@ fn files_export_roundtrip() {
     assert_eq!(e2.doc.root.len(), 2);
     assert_eq!(e2.doc.assets.len(), 1);
 }
+
+#[test]
+fn zoom_ladder_and_centre() {
+    let mut e = Editor::default();
+    e.fit(1000, 700);
+    let fitted = e.zoom();
+    // stepping lands on round stops and never skips or stalls
+    e.zoom_to(0.5, 1000, 700);
+    e.zoom_step(true, 1000, 700);  assert!((e.zoom() - 0.67).abs() < 1e-9);
+    e.zoom_step(true, 1000, 700);  assert!((e.zoom() - 0.75).abs() < 1e-9);
+    e.zoom_step(false, 1000, 700); e.zoom_step(false, 1000, 700); assert!((e.zoom() - 0.5).abs() < 1e-9);
+    for _ in 0..40 { e.zoom_step(true, 1000, 700); }  assert!((e.zoom() - 4.0).abs() < 1e-9, "clamped at 400%");
+    for _ in 0..40 { e.zoom_step(false, 1000, 700); } assert!((e.zoom() - 0.05).abs() < 1e-9, "clamped at 5%");
+    // wheel-panning far away loses the screen; centre brings it back without touching the zoom
+    e.fit(1000, 700);
+    e.wheel(-50000.0, -50000.0, false, 0.0, 0.0);
+    let z = e.zoom();
+    e.center_view(1000, 700);
+    assert_eq!(e.zoom(), z);
+    assert!((z - fitted).abs() < 1e-9);
+    // zooming keeps the middle of the viewport fixed
+    let before = e.to_world_pub(500.0, 350.0);
+    e.zoom_to(1.0, 1000, 700);
+    let after = e.to_world_pub(500.0, 350.0);
+    assert!((before.0 - after.0).abs() < 1e-6 && (before.1 - after.1).abs() < 1e-6);
+}

@@ -21,6 +21,9 @@ ColumnLayout {
         if (!same) { model.clear(); for (var j = 0; j < t.length; j++) model.append({ tid: t[j].id, name: t[j].name, repo: t[j].repo, stars: t[j].stars, preview: t[j].preview, hasPreview: t[j].hasPreview, variants: t[j].variants.join("|") }) }
         else for (var k = 0; k < t.length; k++) if (model.get(k).preview !== t[k].preview) model.setProperty(k, "preview", t[k].preview)
     }
+    function themeById(id) { var t = sd.themes; for (var i = 0; i < t.length; i++) if (t[i].id === id) return t[i]; return null }
+    function openDetail(id, variant) { detail.tid = id; detail.open(); detail.variantIndex = variant }
+    ThemeDetail { id: detail; store: root }
     function query() { backend.call("storeQuery", search.text, sort.currentIndex === 0 ? "stars" : "name") }
 
     RowLayout {
@@ -42,7 +45,7 @@ ColumnLayout {
         Layout.fillWidth: true; Layout.fillHeight: true; clip: true
         property int cols: Math.max(1, Math.floor((width - 18) / 250))
         // keep the grid inside the margins
-        cellWidth: Math.floor((width - 18) / cols); cellHeight: 262
+        cellWidth: Math.floor((width - 18) / cols); cellHeight: 300
         leftMargin: 9; rightMargin: 9
         model: model
         ScrollBar.vertical: ScrollBar {}
@@ -54,24 +57,37 @@ ColumnLayout {
             Component.onCompleted: if (model.hasPreview && model.preview === "") root.backend.call("preview", model.tid, "")
             HoverHandler { id: hov }
             Pane {
-                anchors.fill: parent; anchors.margins: 7; padding: 0
+                anchors.fill: parent; anchors.margins: 7; padding: 0; clip: true
                 background: Rectangle { radius: 12; color: t.surface; border.width: 1; border.color: hov.hovered ? t.accent : t.border
                     Behavior on border.color { ColorAnimation { duration: 120 } } }
+                // Clicking anywhere on the card (the thumbnail, the title) opens the detail view.
+                TapHandler { onTapped: root.openDetail(model.tid, card.variantIndex); cursorShape: Qt.PointingHandCursor }
                 ColumnLayout {
                     anchors.fill: parent; spacing: 0
                     Rectangle {
                         Layout.fillWidth: true; Layout.preferredHeight: width * 9 / 16; color: t.surface2; radius: 12
                         Label { anchors.centerIn: parent; text: model.name.substring(0, 2).toUpperCase(); font.pixelSize: 26; font.bold: true; color: t.accent; opacity: 0.55; visible: img.status !== Image.Ready }
                         Image { id: img; anchors.fill: parent; source: model.preview; asynchronous: true; cache: false; fillMode: Image.PreserveAspectCrop; sourceSize.width: 480; visible: status === Image.Ready }
+                        Rectangle {
+                            anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8
+                            width: 26; height: 26; radius: 13; color: "#b0000000"; border.width: 1; border.color: t.border2
+                            visible: hov.hovered
+                            Label { anchors.centerIn: parent; text: "i"; font.bold: true; font.pixelSize: 13; color: t.text }
+                        }
                     }
                     ColumnLayout {
-                        Layout.fillWidth: true; Layout.margins: 10; spacing: 4
+                        Layout.fillWidth: true; Layout.fillHeight: true; Layout.margins: 10; spacing: 4
                         Label { text: model.name; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
                         Label { text: model.repo + "  ★ " + model.stars; color: t.muted; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true }
-                        AppComboBox { visible: card.variantList.indexOf("|") >= 0; Layout.fillWidth: true; model: card.variantList.split("|"); onActivated: card.variantIndex = currentIndex }
                         Item { Layout.fillHeight: true }
+                        // Same height whether or not the theme has several resolutions, so cards line up and nothing overflows.
+                        Item {
+                            Layout.fillWidth: true; Layout.preferredHeight: 32
+                            AppComboBox { anchors.fill: parent; visible: card.variantList.indexOf("|") >= 0; model: card.variantList.split("|"); currentIndex: card.variantIndex; onActivated: card.variantIndex = currentIndex }
+                            Label { anchors.verticalCenter: parent.verticalCenter; visible: card.variantList.indexOf("|") < 0; text: card.variantList; color: t.muted2; font.pixelSize: 12; elide: Text.ElideRight; width: parent.width }
+                        }
                         RowLayout {
-                            Layout.fillWidth: true
+                            Layout.fillWidth: true; Layout.preferredHeight: 32
                             AppButton { Layout.fillWidth: true; enabled: root.sd.busy === ""; text: root.sd.busy === model.tid ? root.sd.progress : qsTr("Edit")
                                 onClicked: root.backend.call("storeGet", model.tid, "edit:" + card.variantIndex) }
                             AppButton { Layout.fillWidth: true; highlighted: true; enabled: root.sd.busy === ""; text: qsTr("Install")

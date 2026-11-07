@@ -1,6 +1,6 @@
 # Maintainer: Pimp my grub <dev@pimpmygrub.local>
 pkgname=pimp-my-grub
-pkgver=0.2.1
+pkgver=0.3.1
 pkgrel=1
 pkgdesc='Native Qt 6 GRUB theme builder with a theme store and reversible installer'
 arch=(x86_64 aarch64)

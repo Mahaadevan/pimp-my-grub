@@ -33,7 +33,7 @@ pub mod qobject {
         #[inherit]
         fn update(self: Pin<&mut Self>);
 
-        /// kind: 0 down, 1 move, 2 up, 3 wheel, 4 fit, 5 actual size, 6 repaint, 7 space down, 8 space up
+        /// kind: 0 down, 1 move, 2 up, 3 wheel, 4 fit, 5 actual size, 6 repaint, 7 space down, 8 space up, 9 zoom in, 10 zoom out, 11 center
         /// flags: 1 ctrl, 2 shift, 4 alt, 8 middle button
         #[qinvokable]
         fn input(self: Pin<&mut Self>, kind: i32, x: f64, y: f64, a: f64, b: f64, flags: i32);
@@ -45,6 +45,10 @@ pub mod qobject {
 
         #[qsignal]
         fn edited(self: Pin<&mut Self>);
+        /// Zoom or pan changed (so the zoom read-out and buttons can update).
+        #[qsignal]
+        #[cxx_name = "viewChanged"]
+        fn view_changed(self: Pin<&mut Self>);
     }
 
     // A zero-argument constructor. The generated default one is `SceneItem(QObject* parent)`, which does not compile
@@ -94,13 +98,17 @@ impl qobject::SceneItem {
                 2 => e.pointer_up(),
                 3 => { e.wheel(a, b, flags & 1 != 0, x, y); false }
                 4 => { e.fit(size.width() as u32, size.height() as u32); false }
-                5 => { e.actual_size(); false }
+                5 => { e.actual_size(size.width() as u32, size.height() as u32); false }
+                9 => { e.zoom_step(true, size.width() as u32, size.height() as u32); false }
+                10 => { e.zoom_step(false, size.width() as u32, size.height() as u32); false }
+                11 => { e.center_view(size.width() as u32, size.height() as u32); false }
                 7 => { e.space = true; false }
                 8 => { e.space = false; false }
                 _ => false,
             }
         };
         self.as_mut().update();
+        if matches!(kind, 3 | 4 | 5 | 9 | 10 | 11) { self.as_mut().view_changed(); }
         if changed || kind == 0 { self.as_mut().edited(); }
     }
 

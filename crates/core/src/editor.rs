@@ -292,7 +292,26 @@ impl Editor {
         self.zoom = ((w as f64 - 60.0) / sw).min((h as f64 - 60.0) / sh).clamp(0.05, 2.0);
         self.pan = ((w as f64 - sw * self.zoom) / 2.0, (h as f64 - sh * self.zoom) / 2.0);
     }
-    pub fn actual_size(&mut self) { self.zoom = 1.0; }
+    /// Zoom to `z`, keeping whatever is at the middle of the viewport (`w` x `h`) in the middle.
+    pub fn zoom_to(&mut self, z: f64, w: u32, h: u32) {
+        let (cx, cy) = (w as f64 / 2.0, h as f64 / 2.0);
+        let (wx, wy) = self.to_world(cx, cy);
+        let nz = z.clamp(0.05, 4.0);
+        self.pan = (cx - wx * nz, cy - wy * nz); self.zoom = nz;
+    }
+    pub fn actual_size(&mut self, w: u32, h: u32) { self.zoom_to(1.0, w, h); self.center_view(w, h); }
+    /// Next/previous stop of a fixed zoom ladder (so repeated clicks land on round numbers).
+    pub fn zoom_step(&mut self, up: bool, w: u32, h: u32) {
+        const L: [f64; 15] = [0.05, 0.1, 0.15, 0.25, 0.33, 0.5, 0.67, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0, 4.0];
+        let z = self.zoom;
+        let nz = if up { L.iter().copied().find(|v| *v > z * 1.02).unwrap_or(4.0) } else { L.iter().rev().copied().find(|v| *v < z / 1.02).unwrap_or(0.05) };
+        self.zoom_to(nz, w, h);
+    }
+    /// Put the screen back in the middle of the viewport without changing the zoom (recovers a view lost by scrolling).
+    pub fn center_view(&mut self, w: u32, h: u32) {
+        let (sw, sh) = (self.doc.screen.0 as f64, self.doc.screen.1 as f64);
+        self.pan = ((w as f64 - sw * self.zoom) / 2.0, (h as f64 - sh * self.zoom) / 2.0);
+    }
     pub fn zoom(&self) -> f64 { self.zoom }
 
     fn rerender_scene(&mut self) {
@@ -341,6 +360,7 @@ impl Editor {
     }
 
     // ------------------------------------------------------------ input
+    pub fn to_world_pub(&self, sx: f64, sy: f64) -> (f64, f64) { self.to_world(sx, sy) }
     fn to_world(&self, sx: f64, sy: f64) -> (f64, f64) { ((sx - self.pan.0) / self.zoom, (sy - self.pan.1) / self.zoom) }
     fn parent_rect(&self, uid: u64) -> Rect {
         match parent_uid(&self.doc.root, uid, None) { Some(Some(p)) => self.rects.get(&p).copied().unwrap_or_default(), _ => Rect { x: 0, y: 0, w: self.doc.screen.0, h: self.doc.screen.1 } }

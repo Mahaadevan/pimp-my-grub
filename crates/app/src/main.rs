@@ -4,7 +4,27 @@ mod scene_item;
 
 use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QString, QUrl};
 
+/// Qt only opens the system's own file chooser when a platform theme that provides one is active; otherwise it falls back
+/// to its built-in QML dialog. Pick the best available one unless the user chose (QT_QPA_PLATFORMTHEME) or opted out
+/// (PIMPMYGRUB_NATIVE_DIALOGS=0). KDE is left alone: plasma-integration already provides native dialogs.
+fn prefer_native_dialogs() {
+    use std::process::Command;
+    if std::env::var_os("QT_QPA_PLATFORMTHEME").is_some() || std::env::var("PIMPMYGRUB_NATIVE_DIALOGS").map(|v| v == "0").unwrap_or(false) { return; }
+    let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().to_lowercase();
+    if desktop.contains("kde") { return; }
+    let mut dirs: Vec<std::path::PathBuf> = std::env::var("QT_PLUGIN_PATH").unwrap_or_default().split(':').filter(|d| !d.is_empty()).map(Into::into).collect();
+    for d in ["/usr/lib/qt6/plugins", "/usr/lib64/qt6/plugins", "/usr/lib/x86_64-linux-gnu/qt6/plugins", "/usr/lib/aarch64-linux-gnu/qt6/plugins"] { dirs.push(d.into()); }
+    let has = |lib: &str| dirs.iter().any(|d| d.join("platformthemes").join(lib).is_file());
+    let portal_up = Command::new("dbus-send")
+        .args(["--session", "--dest=org.freedesktop.DBus", "--print-reply", "/org/freedesktop/DBus", "org.freedesktop.DBus.NameHasOwner", "string:org.freedesktop.portal.Desktop"])
+        .output().map(|o| String::from_utf8_lossy(&o.stdout).contains("boolean true")).unwrap_or(false);
+    let gtk_desktop = ["gnome", "xfce", "cinnamon", "mate", "budgie", "unity", "pantheon", "lxde", "lxqt", "ubuntu", "x-cinnamon"].iter().any(|d| desktop.contains(d));
+    if portal_up && has("libqxdgdesktopportal.so") { std::env::set_var("QT_QPA_PLATFORMTHEME", "xdgdesktopportal"); }
+    else if gtk_desktop && has("libqgtk3.so") { std::env::set_var("QT_QPA_PLATFORMTHEME", "gtk3"); }
+}
+
 fn main() {
+    prefer_native_dialogs();
     // The UI draws its own dark GrubStudio-style look, which needs a style that allows full customisation.
     // Basic ships with every Qt 6 install; set QT_QUICK_CONTROLS_STYLE yourself to override.
     if std::env::var_os("QT_QUICK_CONTROLS_STYLE").is_none() {

@@ -41,12 +41,22 @@ RowLayout {
                     AppSlider { width: 80; height: 32; from: 0; to: 4; stepSize: 1; value: 0; onMoved: page.backend.call("menuSel", Math.round(value).toString(), "") }
                 }
                 Row {
-                    spacing: 4; height: 32
+                    spacing: 6; height: 32
                     Label { text: qsTr("Timeout"); height: 32; leftPadding: 4; verticalAlignment: Text.AlignVCenter; color: t.muted }
-                    AppSlider { width: 80; height: 32; from: 0; to: 1; value: 0.6; onMoved: page.backend.call("progress", value.toString(), "") }
+                    // Type the countdown progress to preview (0-100 %); Up/Down arrows or the mouse wheel step it by 5.
+                    AppField {
+                        id: timeoutBox; width: 58; height: 32; horizontalAlignment: TextInput.AlignHCenter
+                        text: "60"; inputMethodHints: Qt.ImhDigitsOnly; selectByMouse: true
+                        validator: IntValidator { bottom: 0; top: 100 }
+                        function apply(v) { v = Math.max(0, Math.min(100, v)); text = v.toString(); page.backend.call("progress", (v / 100).toString(), "") }
+                        onTextEdited: if (text !== "") page.backend.call("progress", (Math.min(100, parseInt(text)) / 100).toString(), "")
+                        onEditingFinished: apply(text === "" ? 0 : parseInt(text))
+                        Keys.onUpPressed: apply((parseInt(text) || 0) + 5)
+                        Keys.onDownPressed: apply((parseInt(text) || 0) - 5)
+                        WheelHandler { onWheel: function(ev) { timeoutBox.apply((parseInt(timeoutBox.text) || 0) + (ev.angleDelta.y > 0 ? 5 : -5)) } }
+                    }
+                    Label { text: "%"; height: 32; verticalAlignment: Text.AlignVCenter; color: t.muted }
                 }
-                AppButton { text: qsTr("Fit"); flat: true; onClicked: { scene.userView = false; scene.input(4, 0, 0, 0, 0, 0) } }
-                AppButton { text: qsTr("100%"); flat: true; onClicked: scene.input(5, 0, 0, 0, 0, 0) }
             }
         }
 
@@ -55,6 +65,9 @@ RowLayout {
             Layout.fillWidth: true; Layout.fillHeight: true
             focus: true
             property bool userView: false   // once the user zooms or pans, stop auto-fitting
+            property int zoomPct: 50
+            onViewChanged: zoomPct = zoomPercent()
+            function viewCmd(kind) { if (kind !== 4) userView = true; else userView = false; input(kind, 0, 0, 0, 0, 0) }
             function autoFit() { if (!userView && width > 100 && height > 100) Qt.callLater(function() { scene.input(4, 0, 0, 0, 0, 0) }) }
             onWidthChanged: autoFit()
             onHeightChanged: autoFit()
@@ -73,6 +86,10 @@ RowLayout {
             }
             Keys.onPressed: (e) => {
                 if (e.key === Qt.Key_Space) { scene.userView = true; if (!e.isAutoRepeat) scene.input(7, 0, 0, 0, 0, 0); e.accepted = true; return }
+                if (!(e.modifiers & Qt.ControlModifier) && (e.key === Qt.Key_Plus || e.key === Qt.Key_Equal)) { viewCmd(9); e.accepted = true; return }
+                if (!(e.modifiers & Qt.ControlModifier) && e.key === Qt.Key_Minus) { viewCmd(10); e.accepted = true; return }
+                if (!(e.modifiers & Qt.ControlModifier) && e.key === Qt.Key_0) { viewCmd(4); e.accepted = true; return }
+                if (!(e.modifiers & Qt.ControlModifier) && e.key === Qt.Key_C) { viewCmd(11); e.accepted = true; return }
                 var n = keyName(e)
                 if (n !== "") { scene.key(n, (e.modifiers & Qt.ControlModifier ? 1 : 0) | (e.modifiers & Qt.ShiftModifier ? 2 : 0)); e.accepted = true }
             }
@@ -86,6 +103,15 @@ RowLayout {
                 onPositionChanged: (m) => scene.input(1, m.x, m.y, 0, 0, scene.flags(m))
                 onReleased: (m) => scene.input(2, m.x, m.y, 0, 0, 0)
                 onWheel: (w) => { scene.userView = true; scene.input(3, w.x, w.y, w.angleDelta.x, w.angleDelta.y, (w.modifiers & Qt.ControlModifier) ? 1 : 0) }
+            }
+            ZoomBar {
+                anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 14
+                zoom: scene.zoomPct
+                onZoomIn: scene.viewCmd(9)
+                onZoomOut: scene.viewCmd(10)
+                onActualSize: scene.viewCmd(5)
+                onFit: scene.viewCmd(4)
+                onCenter: scene.viewCmd(11)
             }
         }
     }

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.1
+- **New:** floating view controls on the editor canvas: zoom out (−), a zoom read-out (click it for 100 %), zoom in (+),
+  fit to window and **Centre**. Centre puts the screen back in the middle of the view without changing the zoom, which
+  recovers a canvas that was scrolled or panned out of sight. Zoom steps land on round values (25, 33, 50, 67, 75, 100 %, ...)
+  and zoom around the middle of the view.
+- **New:** keyboard shortcuts on the canvas: `+` / `-` zoom, `0` fit, `C` centre.
+- The old Fit and 100 % buttons in the toolbar moved into the new control; "100 %" now also centres the screen.
+- Test: zoom ladder, clamping and centring are covered by a unit test.
+
+## 0.3.0
+- **New:** theme detail view in the Store. Click a card (or its thumbnail) to see a large preview, the repository description,
+  star count, a link to the GitHub page and the resolution choice, with Edit and Install buttons.
+- **New:** the editor's Timeout preview is a typed number (0-100 %; Up/Down or the mouse wheel step by 5) instead of a slider.
+- **New:** native file, folder and colour dialogs. The app now selects an XDG-portal or GTK3 platform theme when one is
+  available, so Open/Export/Add font use your desktop's own chooser. Set `QT_QPA_PLATFORMTHEME` to choose another one, or
+  `PIMPMYGRUB_NATIVE_DIALOGS=0` to keep Qt's built-in dialogs.
+- **Fix:** store cards with a resolution dropdown overflowed their frame (Edit/Install spilled over the border) and had uneven
+  heights. Cards are now taller, fixed-layout and aligned; single-resolution themes show their resolution as text.
+
 ## 0.2.1
 - **Fix:** the app no longer fails silently when a Qt QML module is missing. It now prints what to install and exits
   with a non-zero code, so the launcher shows an error dialog instead of nothing.

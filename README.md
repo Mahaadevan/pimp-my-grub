@@ -9,7 +9,13 @@ Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to yo
 
 ![Install confirmation: exact files and diff, backup, consent](docs/screenshots/install-confirm.png)
 
-> **Status: early (v0.2.1).** The editor, store UI and installer are working and tested in a sandbox, but the real
+| Theme store | Theme details |
+|---|---|
+| ![Store](docs/screenshots/store.png) | ![Theme details](docs/screenshots/store-detail.png) |
+
+*The store screenshots use a small offline demo catalog (made-up themes) so they can be reproduced without a network connection.*
+
+> **Status: early (v0.3.1).** The editor, store UI and installer are working and tested in a sandbox, but the real
 > apply-to-`/boot` path has **not** been exercised on real hardware yet. Try it in a VM first. See [Status](#status-what-is-and-isnt-verified).
 
 ## Why this exists
@@ -17,7 +23,7 @@ GRUB themes are a pile of `theme.txt`, PNG slices and `.pf2` fonts that you edit
 The goal of this project, as set out at the start:
 
 -  **Build a theme**: drag, resize, snap, layers, inspector, live preview
--  **Theme-Store**: a search bar and preview cards, fed by popular theme repositories (buggy ui)
+-  **Theme store**: a search bar, preview cards and a detail view with description, fed by popular theme repositories
 -  **Made in Rust** that stays fast on **low-end devices**
 - install themes through a **guided, GRUB-respecting, reversible** flow that can never destroy booting, and tells you
   exactly what it changed in system files, with a **confirmation** step
@@ -46,14 +52,19 @@ HyperFluent, CyberGRUB-2077, Sidonia). Themes stay in their own repositories und
 ## Features
 - **Editor:** layers, drag/resize with snap guides, undo/redo, zoom/pan, inspector, preview sizes (1920×1080 … 800×600).
   Percent-based positions such as `50%-120` survive dragging. Components: boot menu, label, image, rectangle, progress bar,
-  circular progress, groups.
+  circular progress, groups. Floating zoom controls (− / + / fit / **centre**, also `+` `-` `0` `C`) bring back a view you scrolled away. The countdown preview (Timeout) is a number you type (0-100 %; Up/Down or the mouse wheel step by 5).
 - **Accurate preview:** real GRUB `.pf2` fonts are drawn glyph by glyph (so text looks like it will at boot), 9-slice
   `select_*.png` styles, icons and progress bars. TTF/OTF → PF2 conversion uses GRUB's own `grub-mkfont`.
-- **Store:** search, sort by popularity, cards with lazily loaded thumbnails, resolution variants, *Edit* or *Install* in one click,
-  plus live search of GitHub's `grub-theme` topic. `cargo run -p pimp-my-grub-core --example build_catalog` (with `GITHUB_TOKEN`) pre-indexes the curated repos so the app needs no API calls on startup (script written, not yet run against live GitHub).
+- **Store:** search, sort by popularity, cards with lazily loaded thumbnails and a resolution picker, *Edit* or *Install* in one click,
+  plus live search of GitHub's `grub-theme` topic. Click a card to open its **detail view**: large preview, the repository's
+  description, stars, a link to its GitHub page and the resolution choice.
+  `cargo run -p pimp-my-grub-core --example build_catalog` (with `GITHUB_TOKEN`) pre-indexes the curated repos so the app needs no API calls on startup (script written, not yet run against live GitHub).
 - **Installer:** review screen listing every file that will change, the exact diff of `/etc/default/grub`, recovery instructions
   and a consent checkbox. Then polkit asks for your password.
 - **Manage:** *Undo last change* or *Remove all* at any time.
+- **Native dialogs:** Open, Export, Add font and colour pickers use your desktop's own chooser (XDG portal or GTK3 when
+  available; KDE via its platform theme). Set `QT_QPA_PLATFORMTHEME` to pick one yourself, or `PIMPMYGRUB_NATIVE_DIALOGS=0` to
+  keep Qt's built-in dialogs.
 - **Light:** CPU rendering only when something changes (no frame loop, no GPU needed), a virtualised store grid with downscaled
   async thumbnails, one small native executable.
 - **Look:** a built-in dark theme with an orange accent, drawn with Qt Quick Controls' `Basic` style so it looks the same on every desktop (set `QT_QUICK_CONTROLS_STYLE` to override).
@@ -130,18 +141,20 @@ tests/         helper safety tests against a fake GRUB tree
 **Checked**
 - core unit tests (parser round-trip on the real Sidonia themes, store indexer, undo/redo, drag, export) and helper safety
   tests (apply, rollback, failed apply restores state, theme-override refusal, hostile input, uninstall)
-- the app launched under a virtual display: editor with a real theme, layers/inspector, store grid (with a test catalog), and the
-  install review dialog against a fake GRUB tree; a `.deb` installs and removes cleanly
+- the app launched under a virtual display: editor with a real theme, layers/inspector, store grid and detail view (with an
+  offline test catalog), the install review dialog, the GTK3 native file chooser, and the startup-failure path (missing QML
+  module gives a message and a non-zero exit); a `.deb` installs and removes cleanly
 
 **Not checked yet**
 - applying a theme to a real `/boot` through polkit, and the polkit prompt itself
 - store behaviour with live GitHub data (thumbnails, downloads, rate limits)
+- the XDG-portal file chooser (only the GTK3 one was exercised), and Wayland
 - the `.rpm`, `PKGBUILD` and AppImage builds
 - BIOS/UEFI/encrypted-`/boot` edge cases, and distros' `/etc/default/grub.d` overrides (detected and refused, but untested on real systems)
 
 **Known limits**
 - the preview covers common components; exotic theme features are ignored
-- `-fpermissive` is used to build `QQuickPaintedItem` with cxx-qt (it generates a `QObject*` constructor; QML always passes a null parent)
+- the store's description is the repository's description, so every theme from one repository shares it
 - GitHub's unauthenticated API is rate-limited; pre-build `data/catalog.json` with the example above before releases
 
 ## Roadmap
