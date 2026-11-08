@@ -8,11 +8,13 @@ fn main() {
                 "qml/StorePage.qml", "qml/InstallDialog.qml",
                 "qml/Tokens.qml", "qml/AppButton.qml", "qml/AppIconButton.qml", "qml/AppField.qml", "qml/AppSlider.qml", "qml/NavTab.qml",
                 "qml/AppComboBox.qml", "qml/AppCheckBox.qml", "qml/AppDialog.qml", "qml/ThemeDetail.qml", "qml/ZoomBar.qml", "qml/AppStepper.qml",
+                "qml/RoundedMask.qml", "qml/NativePick.qml", "qml/HeaderIcon.qml", "qml/AppearanceDialog.qml",
             ])
             .depend("QtQuick"),
     )
     .qt_module("Quick")
     .qt_module("QuickControls2")
     .files(["src/backend.rs", "src/scene_item.rs"])
+    .qrc("resources.qrc")
     .build();
 }

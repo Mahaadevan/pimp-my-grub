@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <!-- Theme.js is a `.pragma library` script, which the QML module file list does not accept, so it ships here. -->
+  <qresource prefix="/qt/qml/dev/pimpmygrub/qml">
+    <file alias="Theme.js">qml/Theme.js</file>
+  </qresource>
+</RCC>

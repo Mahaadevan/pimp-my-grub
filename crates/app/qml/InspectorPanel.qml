@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Dialogs
 
 ScrollView {
     id: root
@@ -29,14 +28,15 @@ ScrollView {
 
     function set(key, v) { backend.call("setField", key, v) }
 
-    ColorDialog { id: colorDlg; onAccepted: { if (root.target === "__rect") backend.call("rectColor", selectedColor.toString(), ""); else root.set(root.target, selectedColor.toString().substring(0, 7)) } }
-    FileDialog { id: imgDlg; nameFilters: ["Images (*.png *.jpg *.jpeg)"]
-        onAccepted: { var r = backend.call("addAsset", selectedFile.toString(), ""); if (r.indexOf("ERR:") === 0) root.note = r.substring(4); else root.set(root.target, r) } }
-    FileDialog { id: fontDlg; nameFilters: ["Fonts (*.ttf *.otf)"]
-        onAccepted: sizeDlg.open() }
+    NativePick { id: colorDlg; backend: root.backend; kind: "color"; title: qsTr("Choose a colour")
+        onAccepted: (c) => { if (root.target === "__rect") backend.call("rectColor", c, ""); else root.set(root.target, c) } }
+    NativePick { id: imgDlg; backend: root.backend; kind: "file"; title: qsTr("Choose an image"); filter: "Images|*.png *.jpg *.jpeg"
+        onAccepted: (p) => { var r = backend.call("addAsset", p, ""); if (r.indexOf("ERR:") === 0) root.note = r.substring(4); else root.set(root.target, r) } }
+    NativePick { id: fontDlg; backend: root.backend; kind: "file"; title: qsTr("Choose a font"); filter: "Fonts|*.ttf *.otf"; property string path: ""
+        onAccepted: (p) => { path = p; sizeDlg.open() } }
     AppDialog { id: sizeDlg; title: qsTr("Font size"); standardButtons: Dialog.Ok | Dialog.Cancel
         AppStepper { id: sizeBox; implicitWidth: 120; text: "24"; minValue: 8; maxValue: 160; step: 1; bigStep: 4; inputMethodHints: Qt.ImhDigitsOnly; validator: IntValidator { bottom: 8; top: 160 } }
-        onAccepted: { var r = backend.call("addFont", fontDlg.selectedFile.toString(), Math.max(8, Math.min(160, parseInt(sizeBox.text) || 24)).toString()); if (r.indexOf("ERR:") === 0) root.note = r.substring(4); else { root.note = qsTr("Font added: %1").arg(r); if (root.target) root.set(root.target, r) } } }
+        onAccepted: { var r = backend.call("addFont", fontDlg.path, Math.max(8, Math.min(160, parseInt(sizeBox.text) || 24)).toString()); if (r.indexOf("ERR:") === 0) root.note = r.substring(4); else { root.note = qsTr("Font added: %1").arg(r); if (root.target) root.set(root.target, r) } } }
 
     ColumnLayout {
         width: root.availableWidth; spacing: 6
@@ -120,7 +120,7 @@ ScrollView {
     Component { id: colorField
         RowLayout { spacing: 6
             Rectangle { width: 32; height: 32; radius: 8; border.color: t.border2; color: /^#[0-9a-fA-F]{3,8}$/.test(f.value) ? f.value : "#ffffff"
-                MouseArea { anchors.fill: parent; onClicked: { root.target = f.key; colorDlg.selectedColor = parent.color; colorDlg.open() } } }
+                MouseArea { anchors.fill: parent; onClicked: { root.target = f.key; colorDlg.current = parent.color.toString(); colorDlg.open() } } }
             AppField { Layout.fillWidth: true; visible: f.kind === "color"; text: f.value; selectByMouse: true; onEditingFinished: root.set(f.key, text) }
         } }
     Component { id: comboField

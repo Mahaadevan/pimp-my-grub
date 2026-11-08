@@ -13,9 +13,11 @@ Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to yo
 |---|---|
 | ![Store](docs/screenshots/store.png) | ![Theme details](docs/screenshots/store-detail.png) |
 
+<p align="center"><img src="docs/screenshots/appearance.png" width="420" alt="Appearance: choose the accent colour"></p>
+
 *The store screenshots use a small offline demo catalog (made-up themes) so they can be reproduced without a network connection.*
 
-> **Status: early (v0.3.2).** The editor, store UI and installer are working and tested in a sandbox, but the real
+> **Status: early (v0.4.0).** The editor, store UI and installer are working and tested in a sandbox, but the real
 > apply-to-`/boot` path has **not** been exercised on real hardware yet. Try it in a VM first. See [Status](#status-what-is-and-isnt-verified).
 
 ## Why this exists
@@ -62,12 +64,14 @@ HyperFluent, CyberGRUB-2077, Sidonia). Themes stay in their own repositories und
 - **Installer:** review screen listing every file that will change, the exact diff of `/etc/default/grub`, recovery instructions
   and a consent checkbox. Then polkit asks for your password.
 - **Manage:** *Undo last change* or *Remove all* at any time.
-- **Native dialogs:** Open, Export, Add font and colour pickers use your desktop's own chooser (XDG portal or GTK3 when
-  available; KDE via its platform theme). Set `QT_QPA_PLATFORMTHEME` to pick one yourself, or `PIMPMYGRUB_NATIVE_DIALOGS=0` to
-  keep Qt's built-in dialogs.
+- **System file choosers:** Open, Export, Add font, Upload image and the colour pickers use your desktop's own chooser
+  (`zenity` on GTK/GNOME/XFCE/Cinnamon..., `kdialog` on KDE); Qt's built-in dialog is only the fallback when neither is
+  installed. Set `PIMPMYGRUB_NATIVE_DIALOGS=0` to always use Qt's dialog.
+- **Your colour:** the palette button in the header opens *Appearance*: pick the app's accent colour from presets, a hex
+  field or the system colour chooser. It is remembered between runs. The GitHub button next to it opens the project page.
 - **Light:** CPU rendering only when something changes (no frame loop, no GPU needed), a virtualised store grid with downscaled
   async thumbnails, one small native executable.
-- **Look:** a built-in dark theme with an orange accent, drawn with Qt Quick Controls' `Basic` style so it looks the same on every desktop (set `QT_QUICK_CONTROLS_STYLE` to override).
+- **Look:** a built-in dark theme with an accent colour you choose (orange by default), drawn with Qt Quick Controls' `Basic` style so it looks the same on every desktop (set `QT_QUICK_CONTROLS_STYLE` to override).
 
 ## Safety model
 | Step | Guarantee |
@@ -92,14 +96,14 @@ prompt names the app. Without it (AppImage, dev builds) the app falls back to `p
 Check Releases(**.deb and .Appimage available**).
 
 ## Build from source
-Rust 1.85+, Qt 6 (Quick, Quick Controls 2, Dialogs), clang. `grub-common` is optional at build time: previews use a built-in
+Rust 1.85+, Qt 6 (Quick, Quick Controls 2, Dialogs), clang. At run time `zenity` (or `kdialog` on KDE) provides the system file chooser; without it Qt's own dialog is used. `grub-common` is optional at build time: previews use a built-in
 font, or GRUB's full `unicode.pf2` when it is installed; `grub-mkfont` (from `grub-common`) is only needed to convert your own fonts.
 ```bash
 # Debian/Ubuntu 24.04+
 sudo apt install qt6-base-dev qt6-declarative-dev clang libclang-dev \
   qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
   qml6-module-qtquick-dialogs qml6-module-qtquick-templates qml6-module-qtquick-window \
-  qml6-module-qtqml-workerscript
+  qml6-module-qtqml-workerscript qml6-module-qt-labs-folderlistmodel
 # Fedora: qt6-qtbase-devel qt6-qtdeclarative-devel clang-devel     Arch: qt6-base qt6-declarative clang
 
 QMAKE=$(command -v qmake6) cargo build --release -p pimp-my-grub
@@ -142,13 +146,13 @@ tests/         helper safety tests against a fake GRUB tree
 - core unit tests (parser round-trip on the real Sidonia themes, store indexer, undo/redo, drag, export) and helper safety
   tests (apply, rollback, failed apply restores state, theme-override refusal, hostile input, uninstall)
 - the app launched under a virtual display: editor with a real theme, layers/inspector, store grid and detail view (with an
-  offline test catalog), the install review dialog, the GTK3 native file chooser, and the startup-failure path (missing QML
+  offline test catalog), the install review dialog, the system folder chooser (zenity), the Appearance dialog and its saved colour, and the startup-failure path (missing QML
   module gives a message and a non-zero exit); a `.deb` installs and removes cleanly
 
 **Not checked yet**
 - applying a theme to a real `/boot` through polkit, and the polkit prompt itself
 - store behaviour with live GitHub data (thumbnails, downloads, rate limits)
-- the XDG-portal file chooser (only the GTK3 one was exercised), and Wayland
+- the KDE `kdialog` chooser (only `zenity` was exercised), the XDG portal, and Wayland
 - the `.rpm`, `PKGBUILD` and AppImage builds
 - BIOS/UEFI/encrypted-`/boot` edge cases, and distros' `/etc/default/grub.d` overrides (detected and refused, but untested on real systems)
 

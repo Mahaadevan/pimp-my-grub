@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+- **New:** change the app's colour. The palette button in the header opens *Appearance*: eight presets, a hex field and the
+  system colour chooser. The choice is saved to `~/.config/pimp-my-grub/settings.json` and applied to buttons, highlights, the
+  logo and the zoom bar. It only affects the app, not the GRUB theme being built.
+- **New:** a GitHub button in the header opens https://github.com/Mahaadevan/pimp-my-grub.
+- **Changed:** Open, Export, Add font, Upload image and the colour pickers now start the system's own chooser (zenity on
+  GTK/GNOME/other desktops, kdialog on KDE) and only fall back to Qt's built-in dialog when neither is installed or
+  `PIMPMYGRUB_NATIVE_DIALOGS=0` is set. The chooser remembers the last folder. Packages now recommend zenity or kdialog.
+- **Fix:** store thumbnails no longer poke square corners out of the rounded card or hide its top border (the hover outline
+  was cut off over the image); the same fix is applied to the detail-view preview, and the "i" badge no longer has colour fringes.
+
 ## 0.3.2
 - **New:** up/down arrow buttons on every numeric field: Timeout, position and size (X, Y, Width, Height), item height,
   padding, spacing, icon sizes, ticks, start angle, and the font size when adding a font. Click to step by 1 (Timeout by 5),

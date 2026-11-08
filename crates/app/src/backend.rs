@@ -28,6 +28,7 @@ pub mod qobject {
         #[qproperty(QString, store_json, cxx_name = "storeJson")]
         #[qproperty(QString, install_json, cxx_name = "installJson")]
         #[qproperty(QString, event)]
+        #[qproperty(QString, picked)]
         type Backend = super::BackendRust;
 
         /// Single entry point: method name plus two string arguments.
@@ -42,7 +43,7 @@ use core::pin::Pin;
 type Ui = CxxQtThread<qobject::Backend>;
 
 #[derive(Default)]
-pub struct BackendRust { rev: i32, store_json: QString, install_json: QString, event: QString }
+pub struct BackendRust { rev: i32, store_json: QString, install_json: QString, event: QString, picked: QString }
 
 // ------------------------------------------------------------------ helpers
 fn percent_decode(s: &str) -> String {
@@ -63,6 +64,96 @@ fn base_name(p: &std::path::Path) -> String { p.file_name().map(|s| s.to_string_
 fn safe_asset_name(n: &str) -> String { n.chars().map(|c| if c.is_ascii_alphanumeric() || "._+@- ".contains(c) { c } else { '_' }).collect() }
 fn lock<T>(m: &'static Mutex<T>) -> MutexGuard<'static, T> { m.lock().unwrap_or_else(|e| e.into_inner()) }
 static EVENT_N: AtomicU64 = AtomicU64::new(1);
+
+// ------------------------------------------------------------------ system file / folder / colour pickers
+// Qt's own dialog is only used when no system chooser can be launched. zenity (GTK) and kdialog (KDE) are the choosers
+// desktops ship; they run as a child process so the app shows the same dialog as every other program.
+static LAST_DIR: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::new(String::new()));
+static PICK_N: AtomicU64 = AtomicU64::new(1);
+
+fn find_tool(name: &str) -> Option<PathBuf> {
+    std::env::var_os("PATH").and_then(|p| std::env::split_paths(&p).map(|d| d.join(name)).find(|f| f.is_file()))
+}
+/// Environment variables an AppImage / bundled Qt sets that would break a host program such as zenity.
+fn scrub(c: &mut std::process::Command) {
+    for k in ["LD_LIBRARY_PATH", "LD_PRELOAD", "QT_PLUGIN_PATH", "QML2_IMPORT_PATH", "QML_IMPORT_PATH", "QT_QPA_PLATFORMTHEME", "QT_QPA_PLATFORM", "QT_QUICK_CONTROLS_STYLE",
+              "PYTHONHOME", "PYTHONPATH", "GIO_EXTRA_MODULES", "GTK_PATH", "GTK_EXE_PREFIX", "GTK_DATA_PREFIX", "GDK_PIXBUF_MODULE_FILE", "GDK_PIXBUF_MODULEDIR"] { c.env_remove(k); }
+}
+fn patterns(filter: &str) -> (String, Vec<String>) {
+    // "Images|*.png *.jpg"  ->  ("Images", ["*.png", "*.PNG", "*.jpg", "*.JPG"])
+    let (name, pats) = filter.split_once('|').unwrap_or(("Files", filter));
+    let mut v = Vec::new();
+    for p in pats.split_whitespace() { v.push(p.to_string()); let u = p.to_uppercase(); if u != p { v.push(u); } }
+    (name.to_string(), v)
+}
+fn parse_colour(out: &str) -> Option<String> {
+    let o = out.trim();
+    if let Some(h) = o.strip_prefix('#') { if h.len() >= 6 && h[..6].chars().all(|c| c.is_ascii_hexdigit()) { return Some(format!("#{}", h[..6].to_lowercase())); } }
+    let inner = o.strip_prefix("rgba(").or_else(|| o.strip_prefix("rgb("))?.trim_end_matches(')');
+    let n: Vec<u8> = inner.split(',').take(3).filter_map(|x| x.trim().parse::<f32>().ok().map(|f| f.round().clamp(0.0, 255.0) as u8)).collect();
+    if n.len() == 3 { Some(format!("#{:02x}{:02x}{:02x}", n[0], n[1], n[2])) } else { None }
+}
+/// Ok(Some(value)) chosen, Ok(None) cancelled, Err(()) no usable system chooser (caller falls back to Qt's dialog).
+fn system_pick(kind: &str, title: &str, filter: &str, current: &str) -> Result<Option<String>, ()> {
+    use std::process::Command;
+    if std::env::var("PIMPMYGRUB_NATIVE_DIALOGS").map(|v| v == "0").unwrap_or(false) { return Err(()); }
+    let kde = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().to_lowercase().contains("kde");
+    let order: [&str; 2] = if kde { ["kdialog", "zenity"] } else { ["zenity", "kdialog"] };
+    let start = { let l = lock(&LAST_DIR).clone(); if l.is_empty() { std::env::var("HOME").unwrap_or_else(|_| "/".into()) } else { l } };
+    let start_slash = format!("{}/", start.trim_end_matches('/'));
+    let (fname, pats) = patterns(filter);
+    for tool in order {
+        let Some(bin) = find_tool(tool) else { continue };
+        let mut c = Command::new(bin);
+        if tool == "zenity" {
+            match kind {
+                "color" => { c.args(["--color-selection", "--title", title]); if current.starts_with('#') { c.args(["--color", current]); } }
+                "dir" => { c.args(["--file-selection", "--directory", "--title", title, "--filename", &start_slash]); }
+                _ => { c.args(["--file-selection", "--title", title, "--filename", &start_slash]);
+                       if !pats.is_empty() { c.arg(format!("--file-filter={fname} | {}", pats.join(" "))); c.arg("--file-filter=All files | *"); } }
+            }
+        } else {
+            match kind {
+                "color" => { c.arg("--getcolor"); }
+                "dir" => { c.args(["--getexistingdirectory", &start_slash, "--title", title]); }
+                _ => { c.args(["--getopenfilename", &start_slash]); c.arg(if pats.is_empty() { "*|All files".to_string() } else { format!("{}|{fname}", pats.join(" ")) }); c.args(["--title", title]); }
+            }
+        }
+        scrub(&mut c);
+        let Ok(o) = c.output() else { continue };
+        let err = String::from_utf8_lossy(&o.stderr).to_lowercase();
+        if o.status.success() {
+            let out = String::from_utf8_lossy(&o.stdout); let line = out.lines().next().unwrap_or("").trim().to_string();
+            if line.is_empty() { return Ok(None); }
+            if kind == "color" { return Ok(parse_colour(&line)); }
+            // zenity may return several paths separated by '|' when multi-select is on; we never ask for that.
+            let p = PathBuf::from(&line);
+            let dir = if p.is_dir() { Some(p.clone()) } else { p.parent().map(|d| d.to_path_buf()) };
+            if let Some(d) = dir { *lock(&LAST_DIR) = d.to_string_lossy().into_owned(); }
+            return Ok(Some(line));
+        }
+        // exit code 1 is "cancelled" for both tools, unless the toolkit could not even start
+        if o.status.code() == Some(1) && !(err.contains("cannot open display") || err.contains("unable to init") || err.contains("failed to open display")) { return Ok(None); }
+    }
+    Err(())
+}
+
+// ------------------------------------------------------------------ persisted settings (accent colour ...)
+fn settings_path() -> PathBuf {
+    let base = std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).filter(|p| p.is_absolute())
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config"))).unwrap_or_else(|| PathBuf::from("/tmp"));
+    base.join("pimp-my-grub").join("settings.json")
+}
+fn read_settings() -> serde_json::Map<String, serde_json::Value> {
+    std::fs::read_to_string(settings_path()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+}
+fn write_setting(k: &str, v: &str) {
+    let mut m = read_settings();
+    if v.is_empty() { m.remove(k); } else { m.insert(k.to_string(), serde_json::Value::String(v.to_string())); }
+    let p = settings_path();
+    if let Some(d) = p.parent() { let _ = std::fs::create_dir_all(d); }
+    let _ = std::fs::write(p, serde_json::Value::Object(m).to_string());
+}
 
 // ------------------------------------------------------------------ store state
 #[derive(Default)]
@@ -238,6 +329,26 @@ impl qobject::Backend {
             // Changes nothing; only bumps `rev` so the panels refresh after a canvas edit. (The canvas used to call
             // "select" with an empty id for this, which silently cleared the selection on every click.)
             "touch" => String::new(),
+            "getSetting" => { mutated = false; read_settings().get(&a).and_then(|v| v.as_str()).unwrap_or("").to_string() }
+            "setSetting" => { mutated = false; write_setting(&a, &b); String::new() }
+            // a = "kind\u{1}title\u{1}filter\u{1}current", b = token. Returns "native" when a system chooser was started
+            // (the answer arrives later in `picked`), otherwise "fallback" and the QML side opens Qt's own dialog.
+            "pick" => {
+                mutated = false;
+                let mut it = a.split('\u{1}');
+                let (kind, title, filter, current) = (it.next().unwrap_or("file").to_string(), it.next().unwrap_or("").to_string(), it.next().unwrap_or("").to_string(), it.next().unwrap_or("").to_string());
+                let usable = !std::env::var("PIMPMYGRUB_NATIVE_DIALOGS").map(|v| v == "0").unwrap_or(false) && (find_tool("zenity").is_some() || find_tool("kdialog").is_some());
+                if usable {
+                    let tok = b.clone();
+                    std::thread::spawn(move || {
+                        let n = PICK_N.fetch_add(1, Ordering::Relaxed);
+                        let val = match system_pick(&kind, &title, &filter, &current) { Ok(Some(v)) => v, Ok(None) => String::new(), Err(()) => "!fallback".to_string() };
+                        let msg = format!("{n}\u{1}{tok}\u{1}{val}");
+                        let _ = t.queue(move |mut bk| { bk.as_mut().set_picked(QString::from(&msg)); });
+                    });
+                    "native".to_string()
+                } else { "fallback".to_string() }
+            }
             "version" => { mutated = false; env!("CARGO_PKG_VERSION").to_string() }
             "toggle" => { if let Ok(u) = a.parse() { ed().toggle(u, b == "locked"); } String::new() }
             "setField" => { ed().set_field(&a, &b); String::new() }

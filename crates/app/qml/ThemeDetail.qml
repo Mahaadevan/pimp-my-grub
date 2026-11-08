@@ -25,11 +25,12 @@ AppDialog {
             width: sv.availableWidth; spacing: 12
             Rectangle {
                 Layout.fillWidth: true; Layout.preferredHeight: Math.min(width * 9 / 16, 300); radius: 10; color: t.bg; clip: true
-                border.width: 1; border.color: t.border
                 Label { anchors.centerIn: parent; visible: big.status !== Image.Ready; color: t.muted
                     text: !dlg.theme ? "" : (dlg.theme.hasPreview ? qsTr("Loading preview…") : qsTr("This repository has no preview image.")) }
                 Image { id: big; anchors.fill: parent; source: dlg.theme ? dlg.theme.preview : ""; asynchronous: true; cache: false
                     fillMode: Image.PreserveAspectFit; sourceSize.width: 1280; visible: status === Image.Ready }
+                RoundedMask { anchors.fill: parent; radius: 10; color: t.surface }
+                Rectangle { anchors.fill: parent; radius: 10; color: "transparent"; border.width: 1; border.color: t.border; enabled: false }
             }
             RowLayout {
                 Layout.fillWidth: true; spacing: 10

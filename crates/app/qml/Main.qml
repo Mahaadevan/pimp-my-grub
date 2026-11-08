@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Dialogs
+import "Theme.js" as Theme
 import dev.pimpmygrub
 
 ApplicationWindow {
@@ -24,7 +24,7 @@ ApplicationWindow {
     property string appVersion: ""
     function refresh() { st = JSON.parse(backend.call("status", "", "")) }
     Connections { target: backend; function onRevChanged() { win.refresh() } }
-    Component.onCompleted: { refresh(); appVersion = backend.call("version", "", ""); backend.call("storeInit", "", "") }
+    Component.onCompleted: { refresh(); appVersion = backend.call("version", "", ""); Theme.set(backend.call("getSetting", "accent", "")); backend.call("storeInit", "", "") }
 
     function say(msg) { toast.text = msg; toast.visible = true; toastTimer.restart() }
     function result(r, ok) { if (r.indexOf("ERR:") === 0) say(r.substring(4)); else if (ok) say(ok) }
@@ -76,6 +76,9 @@ ApplicationWindow {
             AppButton { text: qsTr("Export…"); onClicked: exportDlg.open() }
             AppButton { flat: true; text: qsTr("Manage"); onClicked: installDialog.openFor("manage"); ToolTip.text: qsTr("Undo or remove installed themes"); ToolTip.visible: hovered }
             AppButton { text: qsTr("Install…"); highlighted: true; onClicked: installDialog.openFor("install") }
+            Rectangle { width: 1; height: 20; color: t.border; Layout.leftMargin: 2; Layout.rightMargin: 2 }
+            HeaderIcon { kind: "palette"; tip: qsTr("Appearance: change the app's colour"); onClicked: appearanceDlg.open() }
+            HeaderIcon { kind: "github"; tip: qsTr("Pimp my grub on GitHub"); onClicked: Qt.openUrlExternally("https://github.com/Mahaadevan/pimp-my-grub") }
         }
     }
 
@@ -107,10 +110,12 @@ ApplicationWindow {
 
     InstallDialog { id: installDialog; backend: backend }
 
-    FolderDialog { id: openFolderDlg; title: qsTr("Open theme folder"); onAccepted: win.result(backend.call("openFolder", selectedFolder.toString(), ""), qsTr("Theme opened")) }
-    FileDialog { id: openZipDlg; title: qsTr("Open theme archive"); nameFilters: ["Zip archives (*.zip)"]; onAccepted: win.result(backend.call("openZip", selectedFile.toString(), ""), qsTr("Theme opened")) }
-    FolderDialog { id: exportDlg; title: qsTr("Choose where to save the theme folder")
-        onAccepted: { var r = backend.call("exportTo", selectedFolder.toString(), ""); if (r.indexOf("ERR:") === 0) win.say(r.substring(4)); else win.say(qsTr("Saved to %1").arg(r)) } }
+    // System choosers (zenity / kdialog); Qt's own dialog only if neither exists.
+    NativePick { id: openFolderDlg; backend: backend; kind: "dir"; title: qsTr("Open theme folder"); onAccepted: (p) => win.result(backend.call("openFolder", p, ""), qsTr("Theme opened")) }
+    NativePick { id: openZipDlg; backend: backend; kind: "file"; title: qsTr("Open theme archive"); filter: "Zip archives|*.zip"; onAccepted: (p) => win.result(backend.call("openZip", p, ""), qsTr("Theme opened")) }
+    NativePick { id: exportDlg; backend: backend; kind: "dir"; title: qsTr("Choose where to save the theme folder")
+        onAccepted: (p) => { var r = backend.call("exportTo", p, ""); if (r.indexOf("ERR:") === 0) win.say(r.substring(4)); else win.say(qsTr("Saved to %1").arg(r)) } }
+    AppearanceDialog { id: appearanceDlg; backend: backend }
 
     Label {
         id: toast; visible: false; z: 10; padding: 10

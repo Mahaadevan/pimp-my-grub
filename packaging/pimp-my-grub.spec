@@ -1,5 +1,5 @@
 Name:           pimp-my-grub
-Version:        0.3.2
+Version:        0.4.0
 Release:        1%{?dist}
 Summary:        Native Qt 6 GRUB theme builder
 License:        GPL-3.0-or-later
@@ -8,6 +8,7 @@ Source0:        %{name}-%{version}.tar.gz
 BuildRequires:  cargo rust qt6-qtbase-devel qt6-qtdeclarative-devel clang-devel gcc-c++
 Requires:       qt6-qtdeclarative polkit
 Recommends:     grub2-tools
+Recommends:     (zenity or kdialog)
 
 %description
 Visual GRUB theme editor with a theme store and a reversible installer that shows

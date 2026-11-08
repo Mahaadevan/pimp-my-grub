@@ -43,7 +43,7 @@ Priority: optional
 Architecture: $ARCH
 Installed-Size: $SIZE
 Depends: $LIBC$LIBS, polkitd | policykit-1
-Recommends: grub-common, qml6-module-qt-labs-platform
+Recommends: grub-common, zenity | kdialog, qml6-module-qt-labs-platform, qml6-module-qt-labs-folderlistmodel
 Suggests: qqc2-desktop-style
 Maintainer: Pimp my grub <dev@pimpmygrub.local>
 Description: Native Qt 6 GRUB theme builder

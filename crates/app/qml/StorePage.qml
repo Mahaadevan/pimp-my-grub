@@ -58,21 +58,29 @@ ColumnLayout {
             HoverHandler { id: hov }
             Pane {
                 anchors.fill: parent; anchors.margins: 7; padding: 0; clip: true
-                background: Rectangle { radius: 12; color: t.surface; border.width: 1; border.color: hov.hovered ? t.accent : t.border
-                    Behavior on border.color { ColorAnimation { duration: 120 } } }
+                background: Rectangle { radius: 12; color: t.surface }
                 // Clicking anywhere on the card (the thumbnail, the title) opens the detail view.
                 TapHandler { onTapped: root.openDetail(model.tid, card.variantIndex); cursorShape: Qt.PointingHandCursor }
+                Rectangle {   // the card outline, drawn above the image so it is never covered
+                    anchors.fill: parent; radius: 12; color: "transparent"; z: 20; enabled: false
+                    border.width: 1; border.color: hov.hovered ? t.accent : t.border
+                    Behavior on border.color { ColorAnimation { duration: 120 } }
+                }
                 ColumnLayout {
                     anchors.fill: parent; spacing: 0
                     Rectangle {
-                        Layout.fillWidth: true; Layout.preferredHeight: width * 9 / 16; color: t.surface2; radius: 12
+                        Layout.fillWidth: true; Layout.preferredHeight: width * 9 / 16; color: t.surface2; radius: 0
                         Label { anchors.centerIn: parent; text: model.name.substring(0, 2).toUpperCase(); font.pixelSize: 26; font.bold: true; color: t.accent; opacity: 0.55; visible: img.status !== Image.Ready }
                         Image { id: img; anchors.fill: parent; source: model.preview; asynchronous: true; cache: false; fillMode: Image.PreserveAspectCrop; sourceSize.width: 480; visible: status === Image.Ready }
+                        // square image corners are hidden behind the card's rounded corners
+                        RoundedMask { anchors.fill: parent; radius: 12; color: t.bg; topOnly: true; z: 2 }
                         Rectangle {
-                            anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8
-                            width: 26; height: 26; radius: 13; color: "#b0000000"; border.width: 1; border.color: t.border2
+                            anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 9; z: 3
+                            width: 24; height: 24; radius: 12; color: "#e609090b"; border.width: 1; border.color: t.border2
                             visible: hov.hovered
-                            Label { anchors.centerIn: parent; text: "i"; font.bold: true; font.pixelSize: 13; color: t.text }
+                            // drawn from shapes (not text) so it has no colour fringing over the image
+                            Rectangle { x: 10.5; y: 5.5; width: 3; height: 3; radius: 1.5; color: t.text }
+                            Rectangle { x: 10.5; y: 10; width: 3; height: 8; radius: 1.2; color: t.text }
                         }
                     }
                     ColumnLayout {

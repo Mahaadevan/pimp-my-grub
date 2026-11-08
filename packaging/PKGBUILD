@@ -1,13 +1,13 @@
 # Maintainer: Pimp my grub <dev@pimpmygrub.local>
 pkgname=pimp-my-grub
-pkgver=0.3.2
+pkgver=0.4.0
 pkgrel=1
 pkgdesc='Native Qt 6 GRUB theme builder with a theme store and reversible installer'
 arch=(x86_64 aarch64)
 url='https://github.com/pimp-my-grub/pimp-my-grub'
 license=(GPL-3.0-or-later)
 depends=(qt6-declarative polkit)
-optdepends=('grub: required to apply themes' 'qqc2-desktop-style: native look on KDE')
+optdepends=('grub: required to apply themes' 'zenity: system file chooser on GTK desktops' 'kdialog: system file chooser on KDE' 'qqc2-desktop-style: native look on KDE')
 makedepends=(cargo clang qt6-base)
 source=("$pkgname-$pkgver.tar.gz")
 sha256sums=(SKIP)
