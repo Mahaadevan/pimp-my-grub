@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/logo.png" width="96" alt="Pimp my GRUB icon"></p>
 
-# Pimp my GRUB
+# Pimp my GRUB (Barely Working)
 
 **A native Linux app to design GRUB themes visually, browse a theme store, and install a theme safely.**
 Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to you first and can be undone.
