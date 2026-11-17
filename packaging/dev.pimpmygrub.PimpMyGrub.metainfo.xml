@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
   <id>dev.pimpmygrub.PimpMyGrub</id>
-  <name>Pimp my grub</name>
+  <name>Pimp my GRUB</name>
   <summary>Design and safely install GRUB boot themes</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
@@ -13,6 +13,10 @@
   <categories><category>Utility</category><category>System</category></categories>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.6.2" date="2026-11-15"/>
+    <release version="0.6.1" date="2026-11-13"/>
+    <release version="0.6.0" date="2026-11-09"/>
+    <release version="0.5.0" date="2026-11-08"/>
     <release version="0.4.0" date="2026-11-07"/>
     <release version="0.3.2" date="2026-11-07"/>
     <release version="0.3.1" date="2026-11-07"/>

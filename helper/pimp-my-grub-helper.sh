@@ -1,11 +1,11 @@
 #!/bin/sh
-# Pimp my grub helper: the ONLY code that touches system files.
+# Pimp my GRUB helper: the ONLY code that touches system files.
 #
 #   status                         read-only system probe
 #   plan     STAGE NAME GFX        read-only: show exactly what apply would change
 #   apply    STAGE NAME GFX        install theme (needs root; fully reversible)
 #   rollback                       undo the last apply
-#   uninstall                      remove every Pimp my grub change
+#   uninstall                      remove every Pimp my GRUB change
 #
 # Safety model
 #   * Never edits grub.cfg by hand: it is regenerated with grub-mkconfig into a
@@ -31,6 +31,8 @@ DEFAULTS=${GF_DEFAULTS:-/etc/default/grub}
 TAG_BEGIN='# >>> pimp-my-grub managed block (do not edit by hand) >>>'
 TAG_END='# <<< pimp-my-grub managed block <<<'
 MARK='#pimpmygrub# '
+CFG_BEGIN='# >>> pimp-my-grub settings block (do not edit by hand) >>>'
+CFG_END='# <<< pimp-my-grub settings block <<<'
 MAX_KB=40960
 MAX_FILES=600
 
@@ -140,9 +142,12 @@ validate_stage() {
 }
 
 # --- /etc/default/grub rewrite --------------------------------------------
-# $1 output path, $2 theme name ("" = remove everything Pimp my grub added), $3 gfx
+# $1 output path, $2 theme name ("" = remove everything Pimp my GRUB added), $3 gfx
 build_defaults() {
-  awk -v b="$TAG_BEGIN" -v e="$TAG_END" -v m="$MARK" -v unmark="$([ -z "$2" ] && echo 1 || echo 0)" '
+  awk -v b="$TAG_BEGIN" -v e="$TAG_END" -v m="$MARK" -v cb="$CFG_BEGIN" -v ce="$CFG_END" -v dropcfg="${DROPCFG:-0}" -v unmark="$([ -z "$2" ] && echo 1 || echo 0)" '
+    $0 == cb && dropcfg == 1 { cskip = 1; next }
+    $0 == ce && cskip { cskip = 0; next }
+    cskip { next }
     $0 == b { skip = 1; next }
     $0 == e { skip = 0; next }
     skip { next }
@@ -186,7 +191,7 @@ lock() {
   if ! mkdir "$LOCKDIR" 2>/dev/null; then
     old=$(cat "$LOCKDIR/pid" 2>/dev/null || echo 0)
     if [ "$old" -gt 0 ] 2>/dev/null && kill -0 "$old" 2>/dev/null; then
-      LOCKDIR=""; fatal "Another Pimp my grub operation is running."
+      LOCKDIR=""; fatal "Another Pimp my GRUB operation is running."
     fi
     rm -rf -- "$LOCKDIR"; mkdir "$LOCKDIR"
   fi
@@ -355,12 +360,133 @@ revert_to() {
   regen_cfg "$TARGET"
 }
 
+# --- settings in /etc/default/grub (timeout, default entry, kernel options ...) ------------------
+# The app stages one file, $STAGE/settings.conf, with lines KEY=VALUE. An empty VALUE means "remove my setting".
+# Only the keys and value shapes below are accepted; everything is written inside ONE marked block at the end of the file
+# (as `KEY="VALUE"` or `unset KEY`), so the original lines stay untouched and the whole block can be removed again.
+valid_setting() { # $1 key $2 value ; returns 0 when allowed
+  k=$1; v=$2
+  safe='^[A-Za-z0-9 _.,:;=/@+%<>()-]*$'
+  case $k in
+    GRUB_TIMEOUT)             [ -z "$v" ] || printf '%s' "$v" | grep -Eq '^-?[0-9]{1,4}$' ;;
+    GRUB_TIMEOUT_STYLE)       [ -z "$v" ] || printf '%s' "$v" | grep -Eq '^(menu|countdown|hidden)$' ;;
+    GRUB_DEFAULT)             [ -z "$v" ] || printf '%s' "$v" | grep -Eq '^(saved|[0-9]{1,4}(>[0-9]{1,4})*)$' ;;
+    GRUB_SAVEDEFAULT)         [ -z "$v" ] || printf '%s' "$v" | grep -Eq '^(true|false)$' ;;
+    GRUB_DISABLE_OS_PROBER)   [ -z "$v" ] || printf '%s' "$v" | grep -Eq '^(true|false)$' ;;
+    GRUB_DISABLE_SUBMENU)     [ -z "$v" ] || printf '%s' "$v" | grep -Eq '^(y|n|true|false)$' ;;
+    GRUB_DISABLE_RECOVERY)    [ -z "$v" ] || printf '%s' "$v" | grep -Eq '^(true|false)$' ;;
+    GRUB_GFXPAYLOAD_LINUX)    [ -z "$v" ] || printf '%s' "$v" | grep -Eq '^(keep|text)$' ;;
+    GRUB_RECORDFAIL_TIMEOUT)  [ -z "$v" ] || printf '%s' "$v" | grep -Eq '^[0-9]{1,4}$' ;;
+    GRUB_CMDLINE_LINUX_DEFAULT|GRUB_CMDLINE_LINUX|GRUB_DISTRIBUTOR) [ "${#v}" -le 400 ] && printf '%s' "$v" | LC_ALL=C grep -Eq "$safe" ;;
+    *) return 1 ;;
+  esac
+}
+
+check_settings() {
+  STAGE=${1:-}; CONF="$STAGE/settings.conf"
+  [ -d "$STAGE" ] && [ ! -L "$STAGE" ] || fatal "The prepared settings folder is missing."
+  [ -f "$CONF" ] && [ ! -L "$CONF" ] || fatal "settings.conf is missing."
+  [ "$(wc -c < "$CONF")" -le 8192 ] || fatal "settings.conf is unreasonably large."
+  [ -s "$CONF" ] || fatal "There is nothing to change."
+  n=0
+  while IFS= read -r line || [ -n "$line" ]; do
+    [ -n "$line" ] || continue
+    case $line in GRUB_[A-Z_]*=*) ;; *) fatal "Refusing a malformed setting line." ;; esac
+    k=${line%%=*}; v=${line#*=}
+    valid_setting "$k" "$v" || fatal "Refusing the value for $k."
+    n=$((n + 1))
+  done < "$CONF"
+  [ "$n" -le 20 ] || fatal "Too many settings in one change."
+}
+
+# $1 output ; merges the existing managed block with settings.conf (new values win) and rewrites that block
+build_settings() {
+  : > "$TMP/old.kv"
+  awk -v cb="$CFG_BEGIN" -v ce="$CFG_END" '$0 == cb { inb = 1; next } $0 == ce { inb = 0; next } inb { print }' "$DEFAULTS" |
+    sed -n -e 's/^\(GRUB_[A-Z0-9_]*\)="\(.*\)"$/\1=\2/p' -e 's/^unset \(GRUB_[A-Z0-9_]*\)$/\1=/p' > "$TMP/old.kv"
+  cat "$TMP/old.kv" "$CONF" | awk '{ i = index($0, "="); k = substr($0, 1, i - 1); v = substr($0, i + 1); if (!(k in val)) order[++n] = k; val[k] = v } END { for (j = 1; j <= n; j++) print order[j] "=" val[order[j]] }' > "$TMP/merged.kv"
+  awk -v cb="$CFG_BEGIN" -v ce="$CFG_END" '$0 == cb { skip = 1; next } $0 == ce { skip = 0; next } skip { next } { print }' "$DEFAULTS" > "$1"
+  {
+    echo "$CFG_BEGIN"
+    while IFS= read -r line; do
+      k=${line%%=*}; v=${line#*=}
+      if [ -n "$v" ]; then printf '%s="%s"\n' "$k" "$v"; else printf 'unset %s\n' "$k"; fi
+    done < "$TMP/merged.kv"
+    echo "$CFG_END"
+  } >> "$1"
+  sh -n "$1" 2>/dev/null || fatal "Refusing to write an invalid $DEFAULTS."
+}
+
+settings_warnings() {
+  t=$(getv "$CONF" GRUB_TIMEOUT); st=$(getv "$CONF" GRUB_TIMEOUT_STYLE)
+  if [ "$t" = 0 ]; then warn "A timeout of 0 boots immediately: you will not be able to open the menu or reach recovery mode without holding a key."; fi
+  if [ "$st" = hidden ]; then warn "A hidden menu only appears if you press a key (Shift or Esc) while starting."; fi
+  if [ -n "$(sed -n 's/^GRUB_CMDLINE_LINUX=\(.\)/x/p;s/^GRUB_CMDLINE_LINUX_DEFAULT=\(.\)/x/p' "$CONF")" ]; then warn "Kernel options changed: a wrong option can stop the system from booting. Keep the recovery entry."; fi
+  if grep -q '^GRUB_DISABLE_OS_PROBER=true' "$CONF"; then warn "Other operating systems (for example Windows) will disappear from the menu."; fi
+  if grep -q '^GRUB_DISABLE_RECOVERY=true' "$CONF"; then warn "Recovery-mode entries will be removed."; fi
+}
+
+cmd_cplan() {
+  detect; check_settings "$@"
+  TMP=$(mktemp -d)
+  build_settings "$TMP/new"
+  info grub_dir "$GRUB_DIR"
+  change modify "$DEFAULTS" "Adds or updates one clearly marked block of settings. Your own lines are not touched."
+  change modify "$GRUB_CFG" "Regenerated by $(basename "$MKCONFIG"), validated with $(basename "$SCRIPT_CHECK"), then swapped in atomically."
+  change create "$STATE_ROOT" "Backups of $DEFAULTS and grub.cfg, so the change can be undone."
+  settings_warnings
+  if ls /etc/default/grub.d/*.cfg >/dev/null 2>&1; then
+    f=$(grep -lE '^[[:space:]]*GRUB_(TIMEOUT|DEFAULT|CMDLINE|DISABLE)' /etc/default/grub.d/*.cfg 2>/dev/null | head -n3 | tr '\n' ' ' || true)
+    if [ -n "$f" ]; then warn "These files can override these settings: $f"; fi
+  fi
+  echo DIFFBEGIN
+  diff -u "$DEFAULTS" "$TMP/new" | tail -n +3 || true
+  echo DIFFEND
+  echo OK
+}
+
+cmd_capply() {
+  require_root; detect; check_settings "$@"
+  lock; TMP=$(mktemp -d); init_state
+  STAMP=$(date +%Y%m%d-%H%M%S)
+  BK="$STATE_ROOT/backups/$STAMP.$$"
+  mkdir -p -- "$BK"; chmod 700 "$BK"
+  step "Backing up your current GRUB configuration"
+  cp -p -- "$DEFAULTS" "$BK/default-grub"
+  cp -p -- "$GRUB_CFG" "$BK/grub.cfg"
+  echo config > "$BK/kind"
+  if [ -f "$STATE_ROOT/last-backup" ]; then cp -p -- "$STATE_ROOT/last-backup" "$BK/prev-last"; fi
+  step "Updating $DEFAULTS (marked settings block only)"
+  build_settings "$TMP/new"
+  push_undo 'u_restore_defaults'
+  install_defaults "$TMP/new"
+  push_undo 'u_restore_cfg'
+  regen_cfg ""
+  echo "$BK" > "$STATE_ROOT/last-backup"
+  OK_DONE=1
+  ls -1dt "$STATE_ROOT"/backups/*/ 2>/dev/null | tail -n +9 | while IFS= read -r d; do [ "$d" = "$BK/" ] || rm -rf -- "$d"; done
+  echo OK
+}
+
 cmd_rollback() {
   require_root; detect; lock; TMP=$(mktemp -d)
   [ -f "$STATE_ROOT/last-backup" ] || fatal "There is nothing to roll back."
   B=$(cat "$STATE_ROOT/last-backup")
   case $B in "$STATE_ROOT"/backups/*) ;; *) fatal "The rollback pointer is invalid." ;; esac
   [ -d "$B" ] || fatal "The backup folder is gone."
+  if [ -f "$B/kind" ] && [ "$(cat "$B/kind")" = config ]; then
+    # undoing a settings change: put back the exact files saved before it; theme files are not involved
+    step "Restoring the saved GRUB settings"
+    BK=$B
+    push_undo 'u_restore_defaults'
+    cat "$B/default-grub" > "$DEFAULTS.pimp-my-grub.tmp" && mv -f -- "$DEFAULTS.pimp-my-grub.tmp" "$DEFAULTS"
+    push_undo 'u_restore_cfg'
+    regen_cfg ""
+    if [ -f "$B/prev-last" ]; then cp -p -- "$B/prev-last" "$STATE_ROOT/last-backup"; else rm -f -- "$STATE_ROOT/last-backup"; fi
+    OK_DONE=1
+    echo OK
+    return 0
+  fi
   CUR=""
   if [ -f "$STATE_ROOT/current" ]; then CUR=$(getv "$STATE_ROOT/current" NAME); fi
   if [ -f "$B/state" ]; then
@@ -381,6 +507,7 @@ cmd_rollback() {
 
 cmd_uninstall() {
   require_root; detect; lock; TMP=$(mktemp -d)
+  DROPCFG=1
   revert_to "" "" ""
   for d in "$THEME_ROOT"/pimpmygrub-*; do
     if [ -d "$d" ]; then rm -rf -- "$d"; fi
@@ -396,7 +523,9 @@ case $MODE in
   status)    cmd_status ;;
   plan)      cmd_plan "$@" ;;
   apply)     cmd_apply "$@" ;;
+  cplan)     cmd_cplan "$@" ;;
+  capply)    cmd_capply "$@" ;;
   rollback)  cmd_rollback ;;
   uninstall) cmd_uninstall ;;
-  *) echo "usage: pimp-my-grub-helper status|plan|apply|rollback|uninstall" >&2; exit 64 ;;
+  *) echo "usage: pimp-my-grub-helper status|plan|apply|cplan|capply|rollback|uninstall" >&2; exit 64 ;;
 esac

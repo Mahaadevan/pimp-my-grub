@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Pimp my grub
+Name=Pimp my GRUB
 GenericName=GRUB Theme Builder
 Comment=Design and safely install GRUB boot themes
 Exec=pimp-my-grub

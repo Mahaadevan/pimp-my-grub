@@ -76,3 +76,63 @@ sh "$H" uninstall | tail -1 | grep -q '^OK' || bad uninstall
 cmp "$T/default-grub" "$T/var/original/default-grub" || bad "uninstall != original"
 [ ! -d "$T/boot/grub/themes/pimpmygrub-demo" ] || bad "theme left"
 ok "uninstall restores original defaults"
+
+# ------------------------------------------------------------------ settings (timeout, default entry, kernel options ...)
+S=$T/set; mkdir -p "$S"
+cat > "$T/default-grub" <<'D'
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=5
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
+D
+cp "$T/default-grub" "$T/orig-settings"
+printf 'GRUB_TIMEOUT=2\nGRUB_DEFAULT=saved\nGRUB_SAVEDEFAULT=true\n' > "$S/settings.conf"
+sh "$H" cplan "$S" | grep -q '^DIFFBEGIN' || bad "cplan"
+cmp -s "$T/default-grub" "$T/orig-settings" || bad "cplan must not modify"; ok "settings plan is read-only"
+
+sh "$H" capply "$S" | tail -1 | grep -q '^OK' || bad capply
+grep -q 'pimp-my-grub settings block' "$T/default-grub" || bad "settings block"
+grep -q '^GRUB_TIMEOUT="2"' "$T/default-grub" || bad "timeout written"
+grep -q '^GRUB_TIMEOUT=5' "$T/default-grub" || bad "original line must stay untouched"
+ok "settings applied in a marked block, original lines kept"
+
+# a second change keeps the first (merge), and an empty value removes a setting with `unset`
+printf 'GRUB_TIMEOUT_STYLE=hidden\nGRUB_SAVEDEFAULT=\n' > "$S/settings.conf"
+sh "$H" capply "$S" | tail -1 | grep -q '^OK' || bad capply2
+grep -q '^GRUB_TIMEOUT="2"' "$T/default-grub" || bad "first change lost in the merge"
+grep -q '^GRUB_TIMEOUT_STYLE="hidden"' "$T/default-grub" || bad "second change missing"
+grep -q '^unset GRUB_SAVEDEFAULT' "$T/default-grub" || bad "unset"
+[ "$(grep -c 'settings block (do not' "$T/default-grub")" = 1 ] || bad "exactly one block"
+ok "settings merge across changes"
+
+# undo goes back one change at a time and restores the exact files
+sh "$H" rollback | tail -1 | grep -q '^OK' || bad rollback-settings
+grep -q 'TIMEOUT_STYLE' "$T/default-grub" && bad "second change not undone"
+grep -q '^GRUB_TIMEOUT="2"' "$T/default-grub" || bad "first change must remain"
+sh "$H" rollback | tail -1 | grep -q '^OK' || bad rollback-settings2
+cmp -s "$T/default-grub" "$T/orig-settings" || bad "second rollback must restore the original file"
+ok "settings rollback restores the exact previous file, one step at a time"
+
+# hostile or invalid settings are refused and nothing changes
+for bad_line in 'GRUB_TIMEOUT=abc' 'GRUB_TIMEOUT=99999' 'GRUB_CMDLINE_LINUX="x"; reboot' 'GRUB_CMDLINE_LINUX=a$(id)b' 'GRUB_CMDLINE_LINUX=a`id`' 'GRUB_THEME=/evil' 'GRUB_TIMEOUT_STYLE=evil' 'PATH=/tmp' 'GRUB_DEFAULT=0;reboot'; do
+  printf '%s\n' "$bad_line" > "$S/settings.conf"
+  if sh "$H" cplan "$S" 2>&1 | grep -q '^OK'; then bad "accepted: $bad_line"; fi
+  if sh "$H" capply "$S" 2>&1 | tail -1 | grep -q '^OK'; then bad "applied: $bad_line"; fi
+done
+cmp -s "$T/default-grub" "$T/orig-settings" || bad "refused settings changed the file"
+ln -sf /etc/passwd "$S/settings.conf"; if sh "$H" cplan "$S" 2>&1 | grep -q '^OK'; then bad "symlinked settings.conf accepted"; fi; rm -f "$S/settings.conf"
+ok "hostile settings rejected"
+
+# failure while regenerating the menu: everything is put back
+printf 'GRUB_TIMEOUT=1\n' > "$S/settings.conf"
+FAIL_MKCONFIG=1 sh "$H" capply "$S" >/dev/null 2>&1 && bad "failing mkconfig must fail"
+cmp -s "$T/default-grub" "$T/orig-settings" || bad "failed settings apply restores state"; ok "failed settings apply restores state"
+
+# settings and a theme live side by side; theme rollback keeps the settings; uninstall removes both
+printf 'GRUB_TIMEOUT=3\n' > "$S/settings.conf"; sh "$H" capply "$S" | tail -1 | grep -q '^OK' || bad capply3
+sh "$H" apply "$T/stage" demo 1920x1080 | tail -1 | grep -q '^OK' || bad "theme after settings"
+grep -q '^GRUB_TIMEOUT="3"' "$T/default-grub" || bad "settings survive a theme apply"
+grep -q 'pimp-my-grub managed block' "$T/default-grub" || bad "theme block"
+sh "$H" uninstall | tail -1 | grep -q '^OK' || bad uninstall2
+grep -q 'pimp-my-grub' "$T/default-grub" && bad "uninstall must remove both blocks"
+cmp -s "$T/default-grub" "$T/orig-settings" || bad "uninstall != original after settings and theme"
+ok "settings and theme coexist; uninstall removes both"

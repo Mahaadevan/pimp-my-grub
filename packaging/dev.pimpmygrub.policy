@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 <policyconfig>
-  <vendor>Pimp my grub</vendor>
+  <vendor>Pimp my GRUB</vendor>
   <vendor_url>https://github.com/pimp-my-grub</vendor_url>
   <action id="dev.pimpmygrub.helper">
     <description>Change the GRUB boot menu theme</description>
-    <message>Pimp my grub needs your permission to change the GRUB boot configuration. A backup is created first and every step can be undone.</message>
+    <message>Pimp my GRUB needs your permission to change the GRUB boot configuration. A backup is created first and every step can be undone.</message>
     <icon_name>pimp-my-grub</icon_name>
     <defaults>
       <allow_any>auth_admin</allow_any>
