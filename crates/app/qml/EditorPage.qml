@@ -7,13 +7,23 @@ RowLayout {
     readonly property var t: Tokens {}
     id: page
     property var backend
+    property int entryCount: 5
     signal message(string m)
+    signal livePreview()
+    function addPlain(kind) { kind === "rect" ? backend.call("addRect", "#ff6b6b", "") : backend.call("add", kind, "") }
+    function addPreset(kind, id) { var r = backend.call("addPreset", kind, id); if (r.indexOf("ERR:") === 0) page.message(r.substring(4)) }
+    Shortcut { sequence: "F5"; onActivated: page.livePreview() }
+    Connections { target: page.backend; function onRevChanged() { try { page.entryCount = JSON.parse(page.backend.call("status", "", "")).entries } catch (e) { } } }
+    ItemMenu { id: ctx; backend: page.backend; onEdited: page.backend.call("touch", "", "")
+        onStyleRequested: (k, l) => sdes.openFor(ctx.uid, k, l)
+        onPresetRequested: (kind, id) => page.addPreset(kind, id); onPlainRequested: (kind) => page.addPlain(kind) }
+    StyleDesigner { id: sdes; backend: page.backend; onCreated: page.backend.call("touch", "", "") }
     spacing: 0
 
     Pane {
         Layout.preferredWidth: 240; Layout.fillHeight: true; padding: 0
         background: Rectangle { color: t.surface }
-        LayersPanel { anchors.fill: parent; backend: page.backend }
+        LayersPanel { anchors.fill: parent; backend: page.backend; ctxMenu: ctx }
     }
     Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: t.border }
 
@@ -28,35 +38,51 @@ RowLayout {
                 id: bar
                 x: 8; y: 6; width: parent.width - 16; spacing: 6
                 Repeater {
-                    model: [["boot_menu", qsTr("Menu")], ["label", qsTr("Label")], ["image", qsTr("Image")], ["rect", qsTr("Rectangle")],
-                            ["progress_bar", qsTr("Progress")], ["circular_progress", qsTr("Circular")], ["canvas", qsTr("Group")]]
+                    model: [["boot_menu", qsTr("Menu"), "boot_menu", qsTr("The list of boot entries. Click for ready-made menus.")],
+                            ["label", qsTr("Label"), "label", qsTr("A piece of text: titles, hints, a countdown. Click for ready-made labels.")],
+                            ["image", qsTr("Image"), "", qsTr("A picture from your computer (logo, artwork).")],
+                            ["rect", qsTr("Rectangle"), "rectangle", qsTr("A coloured box, panel, line or fade. Click for ready-made ones.")],
+                            ["progress_bar", qsTr("Progress"), "progress_bar", qsTr("The countdown bar. Click for ready-made bars.")],
+                            ["circular_progress", qsTr("Circular"), "circular_progress", qsTr("A ring or spinner that follows the countdown.")],
+                            ["canvas", qsTr("Group"), "canvas", qsTr("A container that moves its contents together. Click for ready-made layouts.")]]
                     delegate: AppButton {
-                        text: "＋ " + modelData[1]
-                        onClicked: modelData[0] === "rect" ? page.backend.call("addRect", "#ff9248", "") : page.backend.call("add", modelData[0], "")
+                        id: tb
+                        readonly property string pk: modelData[2]
+                        text: "+ " + modelData[1] + (pk !== "" ? "  ▾" : "")
+                        tip: modelData[3]
+                        onClicked: pk === "" ? page.addPlain(modelData[0]) : pmenu.popup(tb, 0, tb.height + 2)
+                        PresetMenu {
+                            id: pmenu; backend: page.backend; kind: tb.pk; plainText: modelData[0] === "rect" ? qsTr("Plain colour rectangle") : qsTr("Standard ") + modelData[1].toLowerCase()
+                            onPlain: page.addPlain(modelData[0])
+                            onChosen: (id) => page.addPreset(tb.pk, id)
+                        }
                     }
                 }
                 Row {
                     spacing: 4; height: 32
                     Label { text: qsTr("Entry"); height: 32; leftPadding: 8; verticalAlignment: Text.AlignVCenter; color: t.muted }
-                    AppSlider { width: 80; height: 32; from: 0; to: 4; stepSize: 1; value: 0; onMoved: page.backend.call("menuSel", Math.round(value).toString(), "") }
+                    AppSlider { id: entrySlider; width: 80; height: 32; from: 0; to: Math.max(1, page.entryCount - 1); stepSize: 1; value: 0; onMoved: page.backend.call("menuSel", Math.round(value).toString(), "") }
                 }
                 Row {
                     spacing: 6; height: 32
-                    Label { text: qsTr("Timeout"); height: 32; leftPadding: 4; verticalAlignment: Text.AlignVCenter; color: t.muted }
-                    // Type the countdown progress to preview (0-100 %), or use the arrow buttons / Up / Down / mouse wheel (step 5).
+                    Label { text: qsTr("Timeout (s)"); height: 32; leftPadding: 4; verticalAlignment: Text.AlignVCenter; color: t.muted
+                        ToolTip.visible: tma.containsMouse; ToolTip.text: qsTr("Seconds left on the countdown, shown by progress bars, circular spinners and labels such as \"Booting in %d s\". Default 5."); ToolTip.delay: 400
+                        MouseArea { id: tma; anchors.fill: parent; hoverEnabled: true } }
                     AppStepper {
                         id: timeoutBox; width: 76; height: 32; horizontalAlignment: TextInput.AlignHCenter
-                        text: "60"; inputMethodHints: Qt.ImhDigitsOnly
-                        step: 5; bigStep: 10; minValue: 0; maxValue: 100
-                        validator: IntValidator { bottom: 0; top: 100 }
-                        function apply(v) { v = Math.max(0, Math.min(100, v)); text = v.toString(); page.backend.call("progress", (v / 100).toString(), "") }
+                        text: "5"; inputMethodHints: Qt.ImhDigitsOnly
+                        step: 1; bigStep: 5; minValue: 0; maxValue: 3600
+                        validator: IntValidator { bottom: 0; top: 3600 }
+                        function apply(v) { v = Math.max(0, Math.min(3600, v)); text = v.toString(); page.backend.call("timeout", v.toString(), "") }
                         onStepped: (v) => apply(parseInt(v))
-                        onTextEdited: if (text !== "") page.backend.call("progress", (Math.min(100, parseInt(text)) / 100).toString(), "")
+                        onTextEdited: if (text !== "") page.backend.call("timeout", Math.min(3600, parseInt(text)).toString(), "")
                         onEditingFinished: apply(text === "" ? 0 : parseInt(text))
-                        WheelHandler { onWheel: function(ev) { timeoutBox.apply((parseInt(timeoutBox.text) || 0) + (ev.angleDelta.y > 0 ? 5 : -5)) } }
+                        WheelHandler { onWheel: function(ev) { timeoutBox.apply((parseInt(timeoutBox.text) || 0) + (ev.angleDelta.y > 0 ? 1 : -1)) } }
                     }
-                    Label { text: "%"; height: 32; verticalAlignment: Text.AlignVCenter; color: t.muted }
                 }
+                AppButton { text: "▶  " + qsTr("Live preview"); highlighted: false
+                    tip: qsTr("Show the theme full screen and try it like the real GRUB: arrow keys move, Enter picks, the countdown runs. Uses this computer's boot entries when they can be read. (F5)")
+                    onClicked: page.livePreview() }
             }
         }
 
@@ -90,6 +116,13 @@ RowLayout {
                 if (!(e.modifiers & Qt.ControlModifier) && e.key === Qt.Key_Minus) { viewCmd(10); e.accepted = true; return }
                 if (!(e.modifiers & Qt.ControlModifier) && e.key === Qt.Key_0) { viewCmd(4); e.accepted = true; return }
                 if (!(e.modifiers & Qt.ControlModifier) && e.key === Qt.Key_C) { viewCmd(11); e.accepted = true; return }
+                if (e.modifiers & Qt.ControlModifier) {
+                    var u = ""; ctx.refresh(); u = ctx.uid
+                    if (e.key === Qt.Key_C && u !== "") { page.backend.call("copy", u, ""); e.accepted = true; return }
+                    if (e.key === Qt.Key_X && u !== "") { page.backend.call("cut", u, ""); e.accepted = true; return }
+                    if (e.key === Qt.Key_V) { page.backend.call("paste", "", ""); e.accepted = true; return }
+                    if (e.key === Qt.Key_G && u !== "") { page.backend.call((e.modifiers & Qt.ShiftModifier) ? "ungroup" : "group", u, ""); e.accepted = true; return }
+                }
                 var n = keyName(e)
                 if (n !== "") { scene.key(n, (e.modifiers & Qt.ControlModifier ? 1 : 0) | (e.modifiers & Qt.ShiftModifier ? 2 : 0)); e.accepted = true }
             }
@@ -97,11 +130,14 @@ RowLayout {
 
             MouseArea {
                 anchors.fill: parent
-                acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
                 hoverEnabled: false
-                onPressed: (m) => { scene.forceActiveFocus(); scene.input(0, m.x, m.y, 0, 0, scene.flags(m) | (m.button === Qt.MiddleButton ? 8 : 0)) }
+                onPressed: (m) => {
+                    scene.forceActiveFocus()
+                    if (m.button === Qt.RightButton) { scene.input(0, m.x, m.y, 0, 0, 0); scene.input(2, m.x, m.y, 0, 0, 0); ctx.openAt(scene, m.x, m.y); return }
+                    scene.input(0, m.x, m.y, 0, 0, scene.flags(m) | (m.button === Qt.MiddleButton ? 8 : 0)) }
                 onPositionChanged: (m) => scene.input(1, m.x, m.y, 0, 0, scene.flags(m))
-                onReleased: (m) => scene.input(2, m.x, m.y, 0, 0, 0)
+                onReleased: (m) => { if (m.button !== Qt.RightButton) scene.input(2, m.x, m.y, 0, 0, 0) }
                 onWheel: (w) => { scene.userView = true; scene.input(3, w.x, w.y, w.angleDelta.x, w.angleDelta.y, (w.modifiers & Qt.ControlModifier) ? 1 : 0) }
             }
             ZoomBar {
@@ -120,6 +156,6 @@ RowLayout {
     Pane {
         Layout.preferredWidth: 310; Layout.fillHeight: true; padding: 0
         background: Rectangle { color: t.surface }
-        InspectorPanel { anchors.fill: parent; backend: page.backend }
+        InspectorPanel { anchors.fill: parent; backend: page.backend; designer: sdes }
     }
 }

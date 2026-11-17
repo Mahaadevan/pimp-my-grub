@@ -1,11 +1,14 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "Help.js" as Help
 
 ScrollView {
     id: root
     readonly property var t: Tokens {}
     property var backend
+    function uidOfSelection() { try { var r = JSON.parse(backend.call("layers", "", "")); for (var i = 0; i < r.length; i++) if (r[i].selected) return String(r[i].uid) } catch (e) { } return "" }
+    property var designer: null          // the StyleDesigner dialog (shared with the editor page)
     property var info: ({ mode: "theme", title: "", geometry: [], fields: [] })
     property int rev: backend ? backend.rev : 0
     onRevChanged: reload()
@@ -32,6 +35,8 @@ ScrollView {
         onAccepted: (c) => { if (root.target === "__rect") backend.call("rectColor", c, ""); else root.set(root.target, c) } }
     NativePick { id: imgDlg; backend: root.backend; kind: "file"; title: qsTr("Choose an image"); filter: "Images|*.png *.jpg *.jpeg"
         onAccepted: (p) => { var r = backend.call("addAsset", p, ""); if (r.indexOf("ERR:") === 0) root.note = r.substring(4); else root.set(root.target, r) } }
+    FontPicker { id: fontPick; backend: root.backend
+        onAdded: (name) => { if (root.target !== "") root.set(root.target, name) } }
     NativePick { id: fontDlg; backend: root.backend; kind: "file"; title: qsTr("Choose a font"); filter: "Fonts|*.ttf *.otf"; property string path: ""
         onAccepted: (p) => { path = p; sizeDlg.open() } }
     AppDialog { id: sizeDlg; title: qsTr("Font size"); standardButtons: Dialog.Ok | Dialog.Cancel
@@ -49,7 +54,9 @@ ScrollView {
                 model: root.geoKeys
                 delegate: RowLayout { Layout.fillWidth: true; spacing: 4
                     property var g: root.info.geometry[index] || ({ key: "", label: "", value: "" })
-                    Label { text: g.label; Layout.preferredWidth: 42; color: t.muted }
+                    Label { text: g.label; Layout.preferredWidth: 42; color: t.muted
+                        HoverHandler { id: gh }
+                        ToolTip.visible: gh.hovered && Help.tip(g.key) !== ""; ToolTip.delay: 450; ToolTip.timeout: 20000; ToolTip.text: Help.tip(g.key) }
                     AppStepper { Layout.fillWidth: true; text: g.value; minValue: 0; maxValue: 20000
                         onEditingFinished: root.set(g.key, text); onStepped: (v) => root.set(g.key, v) }
                 }
@@ -69,7 +76,9 @@ ScrollView {
                 id: row
                 property var fd: root.info.fields[index] || ({ key: "", label: "", kind: "str", value: "", options: [] })
                 Layout.fillWidth: true; Layout.leftMargin: 8; Layout.rightMargin: 8; spacing: 6
-                Label { text: row.fd.label; Layout.preferredWidth: 96; elide: Text.ElideRight; color: t.muted }
+                Label { id: lab; text: row.fd.label; Layout.preferredWidth: 96; elide: Text.ElideRight; color: t.muted
+                    HoverHandler { id: lh }
+                    ToolTip.visible: lh.hovered && Help.tip(row.fd.key) !== ""; ToolTip.delay: 450; ToolTip.timeout: 20000; ToolTip.text: Help.tip(row.fd.key) }
                 Loader {
                     Layout.fillWidth: true
                     sourceComponent: {
@@ -85,14 +94,14 @@ ScrollView {
                     property var f: row.fd
                 }
                 AppIconButton { visible: row.fd.kind === "file"; text: "⬆"; onClicked: { root.target = row.fd.key; imgDlg.open() } ToolTip.text: qsTr("Upload image"); ToolTip.visible: hovered }
-                AppIconButton { visible: row.fd.kind === "font"; text: "＋"; onClicked: { root.target = row.fd.key; fontDlg.open() } ToolTip.text: qsTr("Add a .ttf/.otf font (converted to PF2)"); ToolTip.visible: hovered }
-                AppIconButton { visible: row.fd.kind === "style"; text: "＋"; onClicked: { root.target = row.fd.key; styleDlg.open() } ToolTip.text: qsTr("Create a solid-colour style"); ToolTip.visible: hovered }
+                AppIconButton { visible: row.fd.kind === "font"; text: "+"; onClicked: { root.target = row.fd.key; fontPick.openNow() } tip: qsTr("Add a font: any font installed on this computer, or a font file. It is converted for GRUB at the size you choose.") }
+                AppIconButton { visible: row.fd.kind === "style"; text: "+"; onClicked: { root.target = row.fd.key; root.designer.openFor(root.uidOfSelection(), row.fd.key, row.fd.label) } tip: qsTr("Style designer: make a rounded, bordered or gradient box look for this, or cut one from a picture.") }
             }
         }
 
         // theme-wide extras
         Label { visible: root.info.mode === "theme"; text: qsTr("FONTS"); font.bold: true; font.pixelSize: 11; font.letterSpacing: 0.8; color: t.muted; Layout.leftMargin: 14; Layout.topMargin: 14; Layout.bottomMargin: 6 }
-        AppButton { visible: root.info.mode === "theme"; text: qsTr("Add font (.ttf / .otf)…"); Layout.leftMargin: 8; onClicked: { root.target = ""; fontDlg.open() } }
+        AppButton { visible: root.info.mode === "theme"; text: qsTr("Add font…"); Layout.leftMargin: 8; onClicked: { root.target = ""; fontPick.openNow() } tip: qsTr("Add a font to the theme: installed fonts or a font file") }
         Repeater { model: root.info.mode === "theme" ? root.info.fonts : []; delegate: Label { text: modelData; Layout.leftMargin: 14; color: t.muted; font.pixelSize: 11 } }
         Label { visible: root.info.mode === "theme"; text: qsTr("ASSETS (%1)").arg(root.info.assets ? root.info.assets.length : 0); font.bold: true; font.pixelSize: 11; font.letterSpacing: 0.8; color: t.muted; Layout.leftMargin: 14; Layout.topMargin: 14; Layout.bottomMargin: 6 }
         Repeater {
@@ -125,8 +134,19 @@ ScrollView {
         } }
     Component { id: comboField
         AppComboBox {
+            id: cb
             model: f.kind === "file" || f.kind === "style" ? [""].concat(f.options) : (f.options.indexOf(f.value) < 0 && f.value !== "" ? [f.value].concat(f.options) : f.options)
-            currentIndex: Math.max(0, find(f.value))
+            // The controls are reused after an edit, and a new model resets the index to 0, so select the right entry again
+            // whenever the model, its size or the value changes.
+            property string val: f.value
+            function sync() {
+                var m = cb.model, i = (m && m.indexOf) ? m.indexOf(f.value) : cb.find(f.value)
+                cb.currentIndex = i < 0 ? 0 : i
+            }
+            onModelChanged: Qt.callLater(sync)
+            onCountChanged: Qt.callLater(sync)
+            onValChanged: Qt.callLater(sync)
+            Component.onCompleted: sync()
             onActivated: root.set(f.key, currentText)
         } }
 }

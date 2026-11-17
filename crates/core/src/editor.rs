@@ -10,12 +10,12 @@ use tiny_skia::{Color, FilterQuality, Pixmap, PixmapPaint, Transform};
 const HANDLES: [(&str, f32, f32); 8] = [("nw", 0., 0.), ("n", 0.5, 0.), ("ne", 1., 0.), ("e", 1., 0.5), ("se", 1., 1.), ("s", 0.5, 1.), ("sw", 0., 1.), ("w", 0., 0.5)];
 pub const SCREEN_PRESETS: [(i32, i32); 6] = [(1920, 1080), (2560, 1440), (1366, 768), (1280, 720), (1024, 768), (800, 600)];
 
-fn template(ty: &str) -> Vec<(&'static str, &'static str)> {
+pub(crate) fn template(ty: &str) -> Vec<(&'static str, &'static str)> {
     match ty {
         "label" => vec![("left", "100"), ("top", "100"), ("width", "320"), ("height", "32"), ("text", "\"Label\""), ("color", "\"#ffffff\""), ("font", "\"Unifont Regular 16\""), ("align", "\"left\"")],
         "image" => vec![("left", "100"), ("top", "100"), ("width", "200"), ("height", "120"), ("file", "\"\"")],
         "boot_menu" => vec![("left", "20%"), ("top", "30%"), ("width", "60%"), ("height", "40%"), ("item_font", "\"Unifont Regular 16\""), ("selected_item_font", "\"Unifont Regular 16\""), ("item_color", "\"#c8ccd4\""), ("selected_item_color", "\"#ffffff\""), ("item_height", "36"), ("item_padding", "12"), ("item_spacing", "8"), ("icon_width", "0"), ("icon_height", "0"), ("item_icon_space", "0"), ("scrollbar", "false")],
-        "progress_bar" => vec![("id", "\"__timeout__\""), ("left", "20%"), ("top", "85%"), ("width", "60%"), ("height", "20"), ("fg_color", "\"#ff9248\""), ("bg_color", "\"#2a3140\""), ("border_color", "\"#4a5468\""), ("text_color", "\"#ffffff\""), ("font", "\"Unifont Regular 16\""), ("text", "\"@TIMEOUT_NOTIFICATION_SHORT@\"")],
+        "progress_bar" => vec![("id", "\"__timeout__\""), ("left", "20%"), ("top", "85%"), ("width", "60%"), ("height", "20"), ("fg_color", "\"#ff6b6b\""), ("bg_color", "\"#2a3140\""), ("border_color", "\"#4a5468\""), ("text_color", "\"#ffffff\""), ("font", "\"Unifont Regular 16\""), ("text", "\"@TIMEOUT_NOTIFICATION_SHORT@\"")],
         "circular_progress" => vec![("id", "\"__timeout__\""), ("left", "45%"), ("top", "75%"), ("width", "10%"), ("height", "10%"), ("num_ticks", "24"), ("start_angle", "-64"), ("ticks_disappear", "false")],
         "vbox" => vec![("left", "10%"), ("top", "10%"), ("width", "30%"), ("height", "60%")],
         "hbox" => vec![("left", "10%"), ("top", "10%"), ("width", "60%"), ("height", "30%")],
@@ -24,37 +24,48 @@ fn template(ty: &str) -> Vec<(&'static str, &'static str)> {
 }
 
 /// (key, label, kind). kinds: str expr color bool select file font style
-fn schema(ty: &str) -> Vec<(&'static str, &'static str, &'static str)> {
+/// Every property GRUB's gfxmenu understands for these components, including the ones Sidonia's themes use
+/// (scroll bar styling, highlight overlay, ids for the countdown labels).
+pub(crate) fn schema(ty: &str) -> Vec<(&'static str, &'static str, &'static str)> {
     match ty {
-        "label" => vec![("text", "Text", "str"), ("color", "Color", "color"), ("font", "Font", "font"), ("align", "Align", "select")],
-        "image" => vec![("file", "Image", "file")],
-        "boot_menu" => vec![("item_font", "Item font", "font"), ("selected_item_font", "Selected font", "font"), ("item_color", "Item color", "color"), ("selected_item_color", "Selected color", "color"), ("item_height", "Item height", "expr"), ("item_padding", "Item padding", "expr"), ("item_spacing", "Item spacing", "expr"), ("icon_width", "Icon width", "expr"), ("icon_height", "Icon height", "expr"), ("item_icon_space", "Icon gap", "expr"), ("item_pixmap_style", "Item style", "style"), ("selected_item_pixmap_style", "Selected style", "style"), ("menu_pixmap_style", "Menu style", "style"), ("scrollbar", "Scrollbar", "bool")],
-        "progress_bar" => vec![("id", "Id", "str"), ("text", "Text", "str"), ("font", "Font", "font"), ("text_color", "Text color", "color"), ("fg_color", "Fill color", "color"), ("bg_color", "Back color", "color"), ("border_color", "Border", "color"), ("bar_style", "Bar style", "style"), ("highlight_style", "Fill style", "style")],
+        "label" => vec![("id", "Id", "str"), ("text", "Text", "str"), ("color", "Color", "color"), ("font", "Font", "font"), ("align", "Align", "select")],
+        "image" => vec![("id", "Id", "str"), ("file", "Image", "file")],
+        "boot_menu" => vec![("id", "Id", "str"), ("item_font", "Item font", "font"), ("selected_item_font", "Selected font", "font"), ("item_color", "Item color", "color"), ("selected_item_color", "Selected color", "color"),
+            ("item_height", "Item height", "expr"), ("item_padding", "Item padding", "expr"), ("item_spacing", "Item spacing", "expr"), ("icon_width", "Icon width", "expr"), ("icon_height", "Icon height", "expr"), ("item_icon_space", "Icon gap", "expr"),
+            ("item_pixmap_style", "Item style", "style"), ("selected_item_pixmap_style", "Selected style", "style"), ("menu_pixmap_style", "Menu style", "style"),
+            ("scrollbar", "Scrollbar", "bool"), ("scrollbar_width", "Scrollbar width", "expr"), ("scrollbar_frame", "Scrollbar track style", "style"), ("scrollbar_thumb", "Scrollbar thumb style", "style"),
+            ("scrollbar_thumb_overlay", "Thumb over track", "bool"), ("scrollbar_slice", "Thumb slice", "select"),
+            ("scrollbar_left_pad", "Scrollbar left pad", "expr"), ("scrollbar_right_pad", "Scrollbar right pad", "expr"), ("scrollbar_top_pad", "Scrollbar top pad", "expr"), ("scrollbar_bottom_pad", "Scrollbar bottom pad", "expr")],
+        "progress_bar" => vec![("id", "Id", "str"), ("text", "Text", "str"), ("font", "Font", "font"), ("text_color", "Text color", "color"), ("fg_color", "Fill color", "color"), ("bg_color", "Back color", "color"), ("border_color", "Border", "color"),
+            ("bar_style", "Bar style", "style"), ("highlight_style", "Fill style", "style"), ("highlight_overlay", "Fill over bar", "bool"), ("show_text", "Show text", "bool")],
         "circular_progress" => vec![("id", "Id", "str"), ("center_bitmap", "Center", "file"), ("tick_bitmap", "Tick", "file"), ("num_ticks", "Ticks", "expr"), ("start_angle", "Start angle", "expr"), ("ticks_disappear", "Ticks vanish", "bool")],
         _ => vec![],
     }
 }
-const THEME_SCHEMA: [(&str, &str, &str); 6] = [("desktop-color", "Background", "color"), ("desktop-image", "Image", "file"), ("desktop-image-scale-method", "Scale", "select"), ("title-text", "Title", "str"), ("title-color", "Title color", "color"), ("title-font", "Title font", "font")];
+pub(crate) const THEME_SCHEMA: &[(&str, &str, &str)] = &[("desktop-color", "Background", "color"), ("desktop-image", "Image", "file"), ("desktop-image-scale-method", "Scale", "select"), ("desktop-image-h-align", "Image h-align", "select"), ("desktop-image-v-align", "Image v-align", "select"),
+    ("title-text", "Title", "str"), ("title-color", "Title color", "color"), ("title-font", "Title font", "font"),
+    ("message-font", "Message font", "font"), ("message-color", "Message color", "color"), ("message-bg-color", "Message background", "color"),
+    ("terminal-font", "Terminal font", "font"), ("terminal-box", "Terminal box style", "style")];
 
-fn quoted(kind: &str) -> bool { matches!(kind, "str" | "color" | "select" | "file" | "font" | "style") }
+pub(crate) fn quoted(kind: &str) -> bool { matches!(kind, "str" | "color" | "select" | "file" | "font" | "style") }
 
-fn find<'a>(list: &'a [Comp], uid: u64) -> Option<&'a Comp> {
+pub(crate) fn find<'a>(list: &'a [Comp], uid: u64) -> Option<&'a Comp> {
     for c in list { if c.uid == uid { return Some(c); } if let Some(f) = find(&c.children, uid) { return Some(f); } }
     None
 }
-fn find_mut<'a>(list: &'a mut [Comp], uid: u64) -> Option<&'a mut Comp> {
+pub(crate) fn find_mut<'a>(list: &'a mut [Comp], uid: u64) -> Option<&'a mut Comp> {
     for c in list.iter_mut() {
         if c.uid == uid { return Some(c); }
         if let Some(f) = find_mut(&mut c.children, uid) { return Some(f); }
     }
     None
 }
-fn container_of<'a>(list: &'a mut Vec<Comp>, uid: u64) -> Option<&'a mut Vec<Comp>> {
+pub(crate) fn container_of<'a>(list: &'a mut Vec<Comp>, uid: u64) -> Option<&'a mut Vec<Comp>> {
     if list.iter().any(|c| c.uid == uid) { return Some(list); }
     for c in list.iter_mut() { if let Some(f) = container_of(&mut c.children, uid) { return Some(f); } }
     None
 }
-fn parent_uid(list: &[Comp], uid: u64, parent: Option<u64>) -> Option<Option<u64>> {
+pub(crate) fn parent_uid(list: &[Comp], uid: u64, parent: Option<u64>) -> Option<Option<u64>> {
     for c in list { if c.uid == uid { return Some(parent); } if let Some(f) = parent_uid(&c.children, uid, Some(c.uid)) { return Some(f); } }
     None
 }
@@ -78,12 +89,20 @@ pub struct Editor {
     pub menu_sel: usize,
     pub progress: f32,
     pub rect_colors: HashMap<u64, String>,
-    scene: Scene,
+    /// Countdown shown by the preview: seconds left, out of `timeout_total` (the menu's GRUB_TIMEOUT).
+    pub timeout_secs: i32,
+    pub timeout_total: i32,
+    pub timeout_visible: bool,
+    /// The app's accent colour; selection frames follow it.
+    pub accent: (u8, u8, u8),
+    pub entries: Vec<(String, String)>,
+    pub(crate) clipboard: Option<Comp>,
+    pub(crate) scene: Scene,
     rev: u64,
     drawn: (u64, usize, u32, bool),
     scene_pix: Option<Pixmap>,
     view_pix: Option<Pixmap>,
-    rects: HashMap<u64, Rect>,
+    pub(crate) rects: HashMap<u64, Rect>,
     undo: Vec<Snap>,
     redo: Vec<Snap>,
     zoom: f64, pan: (f64, f64),
@@ -96,10 +115,10 @@ impl Default for Editor { fn default() -> Self { Self::new() } }
 
 impl Editor {
     pub fn new() -> Self {
-        Editor { doc: Doc::default(), name: "my-theme".into(), selected: None, menu_sel: 0, progress: 0.6, rect_colors: HashMap::new(), scene: Scene::new(), rev: 1, drawn: (0, 0, 0, false), scene_pix: None, view_pix: None, rects: HashMap::new(), undo: vec![], redo: vec![], zoom: 0.5, pan: (40., 40.), drag: None, guides: (None, None), space: false }
+        Editor { doc: Doc::default(), name: "my-theme".into(), selected: None, menu_sel: 0, progress: 1.0, rect_colors: HashMap::new(), timeout_secs: 5, timeout_total: 5, timeout_visible: true, accent: (255, 107, 107), entries: vec![], clipboard: None, scene: Scene::new(), rev: 1, drawn: (0, 0, 0, false), scene_pix: None, view_pix: None, rects: HashMap::new(), undo: vec![], redo: vec![], zoom: 0.5, pan: (40., 40.), drag: None, guides: (None, None), space: false }
     }
     pub fn rev(&self) -> u64 { self.rev }
-    fn touch(&mut self) { self.rev += 1; }
+    pub(crate) fn touch(&mut self) { self.rev += 1; }
     fn snap(&self) -> Snap { Snap { globals: self.doc.globals.clone(), root: self.doc.root.clone(), screen: self.doc.screen } }
     pub fn checkpoint(&mut self) { let s = self.snap(); self.undo.push(s); if self.undo.len() > 100 { self.undo.remove(0); } self.redo.clear(); }
     fn restore(&mut self, s: Snap) {
@@ -126,7 +145,7 @@ impl Editor {
         let mut g = self.doc.globals.clone();
         g.shift_remove("screen-size");
         let mut out = BTreeMap::new();
-        out.insert("theme.txt".to_string(), serialize_theme(&g, &self.doc.root, "Made with Pimp my grub").into_bytes());
+        out.insert("theme.txt".to_string(), serialize_theme(&g, &self.doc.root, "Made with Pimp my GRUB").into_bytes());
         for (k, v) in &self.doc.assets { out.insert(k.clone(), v.as_ref().clone()); }
         out
     }
@@ -137,12 +156,20 @@ impl Editor {
         if same { return; }
         self.checkpoint();
         if let Some(c) = find_mut(&mut self.doc.root, uid) { c.props.insert(key.into(), value.into()); }
+        self.use_builtin_font(value);
         self.touch();
     }
     pub fn set_global(&mut self, key: &str, value: &str) {
         self.checkpoint();
         if value.is_empty() { self.doc.globals.shift_remove(key); } else { self.doc.globals.insert(key.into(), value.into()); }
+        self.use_builtin_font(value);
         self.touch();
+    }
+    /// When a font property is set to one of the built-in fonts, put its .pf2 into the theme, so the theme is self-contained.
+    pub(crate) fn use_builtin_font(&mut self, value: &str) {
+        let name = value.trim().trim_matches('"');
+        if self.scene.fonts.contains_key(name) { return; }
+        if let Some(f) = crate::builtin_fonts::find(name) { self.doc.assets.insert(f.file.into(), Arc::new(f.data.to_vec())); }
     }
     pub fn set_screen(&mut self, w: i32, h: i32) { self.checkpoint(); self.doc.screen = (w, h); self.touch(); }
 
@@ -161,7 +188,7 @@ impl Editor {
     }
     pub fn add_rect(&mut self, color: &str) {
         let name = format!("rect-{}.png", new_uid());
-        self.add_asset(&name, solid_png(parse_color(color, (255, 146, 72))));
+        self.add_asset(&name, solid_png(parse_color(color, (255, 107, 107))));
         let id = self.add("image", &[("file", q(&name)), ("width", "300".into()), ("height", "160".into())]);
         self.rect_colors.insert(id, color.to_string());
     }
@@ -169,7 +196,7 @@ impl Editor {
         if let Some(c) = find(&self.doc.root, uid) {
             let f = c.pu("file").to_string();
             self.rect_colors.insert(uid, color.to_string());
-            self.add_asset(&f, solid_png(parse_color(color, (255, 146, 72))));
+            self.add_asset(&f, solid_png(parse_color(color, (255, 107, 107))));
         }
     }
     pub fn add_asset(&mut self, path: &str, bytes: Vec<u8>) { self.doc.assets.insert(path.into(), Arc::new(bytes)); self.touch(); }
@@ -259,12 +286,16 @@ impl Editor {
 
     pub fn inspector_json(&self) -> String {
         let images: Vec<&String> = self.doc.assets.keys().filter(|k| { let l = k.to_ascii_lowercase(); l.ends_with(".png") || l.ends_with(".jpg") || l.ends_with(".jpeg") }).collect();
-        let mut fonts = self.scene.font_names(); fonts.push("Unifont Regular 16".into()); fonts.sort(); fonts.dedup();
+        let mut fonts = self.scene.font_names(); fonts.push("Unifont Regular 16".into()); fonts.extend(crate::builtin_fonts::names().map(String::from)); fonts.sort(); fonts.dedup();
+        // an unset font renders as GRUB's default, so that entry goes first (it is what the dropdown shows for "no font set")
+        if let Some(i) = fonts.iter().position(|f| f == "Unifont Regular 16") { let d = fonts.remove(i); fonts.insert(0, d); }
         let styles = self.style_options();
         let opts = |kind: &str, key: &str| -> Value {
             match (kind, key) {
                 ("file", _) => json!(images), ("font", _) => json!(fonts), ("style", _) => json!(styles),
-                ("select", "align") => json!(["left", "center", "right"]),
+                ("select", "align") | ("select", "desktop-image-h-align") => json!(["left", "center", "right"]),
+                ("select", "desktop-image-v-align") => json!(["top", "center", "bottom"]),
+                ("select", "scrollbar_slice") => json!(["west", "center", "east"]),
                 ("select", _) => json!(["stretch", "crop", "fitwidth", "fitheight"]),
                 _ => json!([]),
             }
@@ -285,7 +316,13 @@ impl Editor {
     }
 
     // ------------------------------------------------------------ rendering
-    fn ensure_layout(&mut self) { self.scene.sync(&self.doc.assets); self.rects = self.scene.layout(&self.doc); }
+    pub(crate) fn ensure_layout(&mut self) { self.sync_scene_state(); self.scene.sync(&self.doc.assets); self.rects = self.scene.layout(&self.doc); }
+    /// Hand the preview state (countdown, boot entries) to the renderer.
+    fn sync_scene_state(&mut self) {
+        self.scene.secs = self.timeout_secs;
+        self.scene.hide_timeout = !self.timeout_visible;
+        if self.scene.entries != self.entries { self.scene.entries = self.entries.clone(); }
+    }
 
     pub fn fit(&mut self, w: u32, h: u32) {
         let (sw, sh) = (self.doc.screen.0 as f64, self.doc.screen.1 as f64);
@@ -315,6 +352,7 @@ impl Editor {
     pub fn zoom(&self) -> f64 { self.zoom }
 
     fn rerender_scene(&mut self) {
+        self.sync_scene_state();
         let changed = self.scene.sync(&self.doc.assets);
         let key = (self.rev, self.menu_sel, self.progress.to_bits(), changed);
         let size_ok = self.scene_pix.as_ref().map(|p| (p.width() as i32, p.height() as i32) == self.doc.screen).unwrap_or(false);
@@ -336,6 +374,7 @@ impl Editor {
         let sel_locked = self.selected.and_then(|s| find(&self.doc.root, s)).map(|c| c.locked).unwrap_or(false);
         let guides = self.guides;
         let screen = self.doc.screen;
+        let acc = self.accent;
         let view = self.view_pix.as_mut()?;
         view.fill(Color::from_rgba8(9, 9, 11, 255));
         if let Some(sp) = self.scene_pix.as_ref() {
@@ -351,18 +390,36 @@ impl Editor {
         frame(view, pan.0 as f32 - 1., pan.1 as f32 - 1., screen.0 as f32 * zoom + 2., screen.1 as f32 * zoom + 2., (39, 39, 42), 1.);
         if let Some(r) = sel_rect {
             let (x, y, w, h) = (pan.0 as f32 + r.x as f32 * zoom, pan.1 as f32 + r.y as f32 * zoom, r.w as f32 * zoom, r.h as f32 * zoom);
-            frame(view, x, y, w, h, (255, 146, 72), 2.);
-            if !sel_locked { for (_, fx, fy) in HANDLES { let (hx, hy) = (x + w * fx - 4., y + h * fy - 4.); rect_px(view, hx - 1., hy - 1., 10., 10., (255, 146, 72)); rect_px(view, hx, hy, 8., 8., (255, 255, 255)); } }
+            frame(view, x, y, w, h, acc, 2.);
+            if !sel_locked { for (_, fx, fy) in HANDLES { let (hx, hy) = (x + w * fx - 4., y + h * fy - 4.); rect_px(view, hx - 1., hy - 1., 10., 10., acc); rect_px(view, hx, hy, 8., 8., (255, 255, 255)); } }
         }
         if let Some(gx) = guides.0 { rect_px(view, pan.0 as f32 + gx as f32 * zoom, 0., 1., h as f32, (255, 79, 163)); }
         if let Some(gy) = guides.1 { rect_px(view, 0., pan.1 as f32 + gy as f32 * zoom, w as f32, 1., (255, 79, 163)); }
         Some((view.data(), w, h))
     }
 
+    /// Full-screen preview: the finished screen scaled to fit `w` x `h` on black, with no editing marks.
+    pub fn render_live(&mut self, w: u32, h: u32) -> Option<(&[u8], u32, u32)> {
+        if w == 0 || h == 0 { return None; }
+        self.rerender_scene();
+        let ok = self.view_pix.as_ref().map(|p| p.width() == w && p.height() == h).unwrap_or(false);
+        if !ok { self.view_pix = Pixmap::new(w, h); }
+        let (sw, sh) = (self.doc.screen.0 as f32, self.doc.screen.1 as f32);
+        let z = (w as f32 / sw).min(h as f32 / sh);
+        let (ox, oy) = ((w as f32 - sw * z) / 2.0, (h as f32 - sh * z) / 2.0);
+        let view = self.view_pix.as_mut()?;
+        view.fill(Color::from_rgba8(0, 0, 0, 255));
+        if let Some(sp) = self.scene_pix.as_ref() {
+            let quality = if z < 1.0 { FilterQuality::Bilinear } else { FilterQuality::Nearest };
+            view.draw_pixmap(0, 0, sp.as_ref(), &PixmapPaint { quality, ..Default::default() }, Transform::from_row(z, 0., 0., z, ox, oy), None);
+        }
+        Some((view.data(), w, h))
+    }
+
     // ------------------------------------------------------------ input
     pub fn to_world_pub(&self, sx: f64, sy: f64) -> (f64, f64) { self.to_world(sx, sy) }
     fn to_world(&self, sx: f64, sy: f64) -> (f64, f64) { ((sx - self.pan.0) / self.zoom, (sy - self.pan.1) / self.zoom) }
-    fn parent_rect(&self, uid: u64) -> Rect {
+    pub(crate) fn parent_rect(&self, uid: u64) -> Rect {
         match parent_uid(&self.doc.root, uid, None) { Some(Some(p)) => self.rects.get(&p).copied().unwrap_or_default(), _ => Rect { x: 0, y: 0, w: self.doc.screen.0, h: self.doc.screen.1 } }
     }
     fn handle_at(&self, sx: f64, sy: f64) -> Option<&'static str> {

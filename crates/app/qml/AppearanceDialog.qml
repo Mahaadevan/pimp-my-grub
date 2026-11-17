@@ -7,8 +7,8 @@ import "Theme.js" as Theme
 AppDialog {
     id: dlg
     property var backend
-    readonly property string defaultAccent: "#ff9248"
-    readonly property var presets: ["#ff9248", "#ff6b6b", "#f472b6", "#a78bfa", "#60a5fa", "#22d3ee", "#4ade80", "#facc15"]
+    readonly property string defaultAccent: "#ff6b6b"
+    readonly property var presets: ["#ff6b6b", "#ff9248", "#f472b6", "#a78bfa", "#60a5fa", "#22d3ee", "#4ade80", "#facc15"]
     property string accent: Theme.accent
     title: qsTr("Appearance")
     standardButtons: Dialog.Close
@@ -17,6 +17,7 @@ AppDialog {
     function setAccent(c) {
         if (!Theme.isHex(c)) return
         Theme.set(c); accent = Theme.accent
+        backend.call("accent", Theme.accent, "")
         backend.call("setSetting", "accent", c.toLowerCase())
     }
     onAboutToShow: { accent = Theme.accent; hex.text = accent }
@@ -52,7 +53,7 @@ AppDialog {
             }
             AppButton { text: qsTr("Pick…"); onClicked: picker.open() }
         }
-        AppButton { flat: true; text: qsTr("Reset to default orange"); onClicked: { dlg.setAccent(dlg.defaultAccent); hex.text = dlg.accent } }
+        AppButton { flat: true; text: qsTr("Reset to default coral"); onClicked: { dlg.setAccent(dlg.defaultAccent); hex.text = dlg.accent } }
         Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: t.muted2; font.pixelSize: 12
             text: qsTr("Changes buttons, highlights, links and the logo. It only affects this app, not the GRUB theme you are building.") }
     }

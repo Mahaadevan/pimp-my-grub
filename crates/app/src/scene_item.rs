@@ -22,6 +22,7 @@ pub mod qobject {
         #[qobject]
         #[qml_element]
         #[base = QQuickPaintedItem]
+        #[qproperty(bool, live)]
         type SceneItem = super::SceneItemRust;
 
         #[qinvokable]
@@ -60,7 +61,7 @@ use core::pin::Pin;
 use cxx_qt_lib::{QImage, QImageFormat, QRect, QString};
 
 #[derive(Default)]
-pub struct SceneItemRust {}
+pub struct SceneItemRust { live: bool }
 
 impl cxx_qt::Constructor<()> for qobject::SceneItem {
     type BaseArguments = ();
@@ -76,11 +77,18 @@ impl qobject::SceneItem {
     /// # Safety
     /// `painter` is provided by Qt and valid for the duration of the call.
     pub unsafe fn paint(mut self: Pin<&mut Self>, painter: *mut qobject::QPainter) {
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe { self.as_mut().paint_inner(painter) }));
+        if r.is_err() { /* the panic hook already logged it; skip this frame instead of aborting */ }
+    }
+
+    unsafe fn paint_inner(mut self: Pin<&mut Self>, painter: *mut qobject::QPainter) {
         let Some(painter) = painter.as_mut() else { return };
         let size = self.as_ref().size();
         let (w, h) = (size.width().max(1.0) as u32, size.height().max(1.0) as u32);
+        let live = *self.as_ref().live();
         let mut editor = ed();
-        if let Some((px, w, h)) = editor.render_view(w, h) {
+        let frame = if live { editor.render_live(w, h) } else { editor.render_view(w, h) };
+        if let Some((px, w, h)) = frame {
             // tiny-skia produces premultiplied RGBA8, exactly Qt's Format_RGBA8888_Premultiplied.
             let img = QImage::from_raw_parts(px.as_ptr(), w as i32, h as i32, QImageFormat::Format_RGBA8888_Premultiplied, no_cleanup, std::ptr::null_mut());
             Pin::new_unchecked(painter).draw_image(&QRect::new(0, 0, w as i32, h as i32), &img);
@@ -89,6 +97,10 @@ impl qobject::SceneItem {
     }
 
     pub fn input(mut self: Pin<&mut Self>, kind: i32, x: f64, y: f64, a: f64, b: f64, flags: i32) {
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.as_mut().input_inner(kind, x, y, a, b, flags)));
+    }
+
+    fn input_inner(mut self: Pin<&mut Self>, kind: i32, x: f64, y: f64, a: f64, b: f64, flags: i32) {
         let size = self.as_ref().size();
         let changed = {
             let mut e = ed();

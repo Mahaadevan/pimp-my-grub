@@ -19,7 +19,7 @@ QtObject {
     }
     function fallback() {
         if (kind === "dir") _dir.open()
-        else if (kind === "color") { _col.selectedColor = current !== "" ? current : "#ff9248"; _col.open() }
+        else if (kind === "color") { _col.selectedColor = current !== "" ? current : "#ff6b6b"; _col.open() }
         else _file.open()
     }
     property var _link: Connections {

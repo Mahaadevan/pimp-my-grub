@@ -3,5 +3,13 @@
   <!-- Theme.js is a `.pragma library` script, which the QML module file list does not accept, so it ships here. -->
   <qresource prefix="/qt/qml/dev/pimpmygrub/qml">
     <file alias="Theme.js">qml/Theme.js</file>
+    <file alias="Help.js">qml/Help.js</file>
+  </qresource>
+  <!-- UI fonts, so the app looks the same on a system with no fonts installed (see fonts/LICENSES.md). -->
+  <qresource prefix="/qt/qml/dev/pimpmygrub/fonts">
+    <file alias="Inter-Regular.otf">fonts/Inter-Regular.otf</file>
+    <file alias="Inter-Bold.otf">fonts/Inter-Bold.otf</file>
+    <file alias="JetBrainsMono-Regular.ttf">fonts/JetBrainsMono-Regular.ttf</file>
+    <file alias="DejaVuSans-Symbols.ttf">fonts/DejaVuSans-Symbols.ttf</file>
   </qresource>
 </RCC>

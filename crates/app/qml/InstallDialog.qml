@@ -16,16 +16,23 @@ Dialog {
     header: Label { text: dlg.title; font.bold: true; font.pixelSize: 16; leftPadding: 18; topPadding: 16; bottomPadding: 4 }
     anchors.centerIn: Overlay.overlay
     width: Math.min(740, parent.width - 40); height: Math.min(sv.contentHeight + 120, parent.height - 40)
-    title: s.mode === "manage" ? qsTr("GRUB theme manager") : qsTr("Install theme to GRUB")
+    title: s.mode === "manage" ? qsTr("GRUB theme manager") : s.mode === "settings" ? qsTr("Apply GRUB settings") : qsTr("Install theme to GRUB")
+    readonly property bool settingsMode: s.mode === "settings"
+    property string pendingEdits: "{}"
 
     function openFor(mode) { agree = false; backend.call("installOpen", mode, ""); open() }
+    // Review a set of changes to /etc/default/grub (id -> value) made on the settings page.
+    function openSettings(edits) { pendingEdits = JSON.stringify(edits); agree = false; backend.call("installOpen", "settings", ""); open() }
     function plan() { agree = false; backend.call("installPlan", nameField.text, gfx) }
     Connections {
         target: dlg.backend
         function onInstallJsonChanged() {
             var prev = dlg.s.phase
             dlg.s = JSON.parse(dlg.backend.installJson)
-            if (dlg.s.phase === "review" && prev !== "review") { nameField.text = JSON.parse(dlg.backend.call("status", "", "")).name; dlg.plan() }
+            if (dlg.s.phase === "review" && prev !== "review") {
+                if (dlg.s.mode === "settings") dlg.backend.call("cfgPlan", dlg.pendingEdits, "")
+                else { nameField.text = JSON.parse(dlg.backend.call("status", "", "")).name; dlg.plan() }
+            }
         }
     }
     readonly property bool nameOk: /^[A-Za-z0-9][A-Za-z0-9._-]{0,47}$/.test(nameField.text)
@@ -37,8 +44,8 @@ Dialog {
         RowLayout { Layout.margins: 12; Layout.topMargin: 0
             Item { Layout.fillWidth: true }
             AppButton { text: qsTr("Cancel"); onClicked: dlg.close() }
-            AppButton { text: qsTr("Apply changes (asks for your password)"); highlighted: true; enabled: dlg.agree && dlg.nameOk && s.plan && !s.plan.fatal
-                onClicked: dlg.backend.call("installApply", nameField.text, dlg.gfx) }
+            AppButton { text: qsTr("Apply changes (asks for your password)"); highlighted: true; enabled: dlg.agree && (dlg.settingsMode || dlg.nameOk) && s.plan && !s.plan.fatal
+                onClicked: dlg.settingsMode ? dlg.backend.call("cfgApply", "", "") : dlg.backend.call("installApply", nameField.text, dlg.gfx) }
         }
     }
 
@@ -54,18 +61,18 @@ Dialog {
                 Frame { Layout.fillWidth: true; background: Rectangle { color: "#10241a"; border.color: "#1f5a3a"; radius: 10 }
                     Label { width: parent.width; wrapMode: Text.Wrap; color: "#d6f5e3"; font.pixelSize: 12
                         text: qsTr("<b>Safe by design.</b> Your current <code>/etc/default/grub</code> and <code>grub.cfg</code> are backed up in <code>/var/lib/pimp-my-grub</code> first. The new boot menu is generated and validated before it replaces the old one, and any error restores everything automatically. If a theme ever fails to load, GRUB shows its plain text menu; your OS entries are never removed.") } }
-                GridLayout { columns: 2; Layout.fillWidth: true
+                GridLayout { columns: 2; Layout.fillWidth: true; visible: !dlg.settingsMode
                     Label { text: qsTr("Theme name") }
                     AppField { id: nameField; Layout.fillWidth: true; onEditingFinished: if (dlg.nameOk) dlg.plan() }
                     Label { text: qsTr("Resolution") }
                     AppComboBox { Layout.fillWidth: true; model: ["auto", "1920x1080,auto", "2560x1440,auto", "1366x768,auto", "1280x720,auto", "1024x768,auto"]; currentIndex: 1
                         onActivated: { dlg.gfx = currentText; dlg.plan() } Component.onCompleted: dlg.gfx = currentText }
                 }
-                Label { visible: !dlg.nameOk; color: t.danger; text: qsTr("Use letters, digits, dot, dash or underscore (max 48).") }
+                Label { visible: !dlg.settingsMode && !dlg.nameOk; color: t.danger; text: qsTr("Use letters, digits, dot, dash or underscore (max 48).") }
                 Label { visible: !s.plan && s.error === ""; text: qsTr("Preparing a preview of the changes…"); opacity: 0.7 }
                 Label { visible: s.error !== ""; text: s.error; color: t.danger; wrapMode: Text.Wrap; Layout.fillWidth: true }
                 ColumnLayout { visible: s.plan && !s.plan.fatal; Layout.fillWidth: true; spacing: 8
-                    Label { text: qsTr("These system files will be changed"); font.bold: true }
+                    Label { text: dlg.settingsMode ? qsTr("These settings will be written to the system") : qsTr("These system files will be changed"); font.bold: true }
                     Repeater { model: s.plan ? s.plan.changes : []
                         delegate: Frame { Layout.fillWidth: true; background: Rectangle { radius: 10; color: t.surface2; border.color: t.border }
                             RowLayout { width: parent.width; spacing: 10
@@ -73,7 +80,8 @@ Dialog {
                                 ColumnLayout { Layout.fillWidth: true; spacing: 2
                                     Label { text: modelData.path; font.family: "monospace"; Layout.fillWidth: true; wrapMode: Text.WrapAnywhere }
                                     Label { text: modelData.note; opacity: 0.65; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.Wrap } } } } }
-                    Repeater { model: s.plan ? s.plan.warns : []; delegate: Label { text: "⚠ " + modelData; color: t.warn; wrapMode: Text.Wrap; Layout.fillWidth: true } }
+                    Repeater { model: s.plan ? s.plan.warns : []; delegate: Frame { Layout.fillWidth: true; background: Rectangle { radius: 8; color: "#2a2210"; border.color: "#5c4716" }
+                        Label { width: parent.width; text: "⚠ " + modelData; color: t.warn; wrapMode: Text.Wrap } } }
                     Label { text: qsTr("Exact edit to /etc/default/grub"); font.bold: true }
                     ScrollView { Layout.fillWidth: true; Layout.preferredHeight: 150; clip: true
                         TextArea { readOnly: true; font.family: t.mono; font.pixelSize: 12; color: t.text; text: s.plan ? s.plan.diff : ""; wrapMode: TextArea.NoWrap
@@ -116,13 +124,13 @@ Dialog {
             ColumnLayout { visible: s.phase === "manage"; Layout.fillWidth: true; spacing: 8
                 Frame { Layout.fillWidth: true; visible: !!s.sys
                     Label { width: parent.width; wrapMode: Text.Wrap
-                        text: s.sys ? qsTr("GRUB folder: %1 · %2 · %3<br>Current theme: %4<br>Pimp my grub theme: <b>%5</b>").arg(s.sys.info.grub_dir || "").arg((s.sys.info.firmware || "").toUpperCase()).arg(s.sys.info.grub_version || "").arg(s.sys.info.current_theme || qsTr("none")).arg(s.sys.info.managed_name || qsTr("none installed")) : "" } }
+                        text: s.sys ? qsTr("GRUB folder: %1 · %2 · %3<br>Current theme: %4<br>Pimp my GRUB theme: <b>%5</b>").arg(s.sys.info.grub_dir || "").arg((s.sys.info.firmware || "").toUpperCase()).arg(s.sys.info.grub_version || "").arg(s.sys.info.current_theme || qsTr("none")).arg(s.sys.info.managed_name || qsTr("none installed")) : "" } }
                 Repeater { model: s.sys ? s.sys.warns : []; delegate: Label { text: "⚠ " + modelData; color: t.warn; wrapMode: Text.Wrap; Layout.fillWidth: true } }
                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; opacity: 0.7; font.pixelSize: 12
-                    text: qsTr("Undo restores the previous state (and previous theme if there was one). Remove deletes everything Pimp my grub added and restores your original theme settings. Both regenerate the boot menu safely.") }
+                    text: qsTr("Undo restores the previous state (and previous theme if there was one). Remove deletes everything Pimp my GRUB added and restores your original theme settings. Both regenerate the boot menu safely.") }
                 RowLayout { Layout.fillWidth: true
                     AppButton { text: qsTr("Undo last change"); enabled: s.sys && s.sys.info.can_rollback === "yes"; onClicked: dlg.backend.call("installRollback", "", "") }
-                    AppButton { text: qsTr("Remove all Pimp my grub changes"); enabled: s.sys && !!s.sys.info.managed_name; onClicked: dlg.backend.call("installUninstall", "", "") }
+                    AppButton { text: qsTr("Remove all Pimp my GRUB changes"); enabled: s.sys && !!s.sys.info.managed_name; onClicked: dlg.backend.call("installUninstall", "", "") }
                     Item { Layout.fillWidth: true }
                     AppButton { text: qsTr("Close"); onClicked: dlg.close() } } }
         }

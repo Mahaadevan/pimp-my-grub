@@ -1,13 +1,16 @@
 import QtQuick
 import QtQuick.Controls
 
-// highlighted -> solid orange (primary) · flat -> ghost · default -> bordered surface
+// highlighted -> solid accent (primary) · flat -> ghost · default -> bordered surface
 Button {
     id: c
     readonly property var t: Tokens {}
     implicitHeight: 32; leftPadding: 12; rightPadding: 12; topPadding: 0; bottomPadding: 0
     font.pixelSize: 13; font.weight: highlighted ? Font.DemiBold : Font.Medium
     hoverEnabled: true
+    // Short help shown after the pointer rests on the button.
+    property string tip: ""
+    ToolTip.visible: hovered && tip !== ""; ToolTip.delay: 500; ToolTip.text: tip
 
     contentItem: Text {
         text: c.text; font: c.font; elide: Text.ElideRight

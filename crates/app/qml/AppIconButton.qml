@@ -6,6 +6,8 @@ Button {
     id: c
     readonly property var t: Tokens {}
     flat: true; hoverEnabled: true
+    property string tip: ""
+    ToolTip.visible: hovered && tip !== ""; ToolTip.delay: 500; ToolTip.text: tip
     implicitWidth: 30; implicitHeight: 30; padding: 2
     font.pixelSize: 14
     contentItem: Text {

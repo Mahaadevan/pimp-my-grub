@@ -1,7 +1,7 @@
 import QtQuick
 import "Theme.js" as Theme
 
-// Design tokens, modelled on the GrubStudio look: near-black surfaces, hairline borders, one orange accent.
+// Design tokens, modelled on the GrubStudio look: near-black surfaces, hairline borders, one accent colour (coral by default).
 // Use as:  readonly property var t: Tokens {}
 QtObject {
     id: tk
@@ -15,7 +15,7 @@ QtObject {
     readonly property color muted:       "#a1a1aa"
     readonly property color muted2:      "#71717a"
     // The accent is user-selectable (Appearance dialog); everything derived from it follows.
-    property color accent:      "#ff9248"
+    property color accent:      "#ff6b6b"
     property color accentHover: Qt.lighter(accent, 1.15)
     property color accentDown:  Qt.darker(accent, 1.15)
     property color accentSoft:  Qt.rgba(accent.r, accent.g, accent.b, 0.14)

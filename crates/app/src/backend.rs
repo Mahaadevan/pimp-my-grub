@@ -4,6 +4,7 @@ use cxx_qt::{CxxQtThread, Threading};
 use cxx_qt_lib::QString;
 use pimp_my_grub_core::editor::Editor;
 use pimp_my_grub_core::installer::{self, Report};
+use pimp_my_grub_core::{fontconv, grubcfg};
 use pimp_my_grub_core::store::{self, RepoRef, StoreTheme};
 use serde_json::json;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -285,6 +286,29 @@ fn install_plan(t: &Ui, name: String, gfx: String) {
     });
 }
 
+fn cfg_plan(t: &Ui, edits_json: String) {
+    let seq = { let mut s = lock(&INSTALL); s.seq += 1; s.plan = None; s.error.clear(); s.seq };
+    push_install(t);
+    let t = t.clone();
+    std::thread::spawn(move || {
+        let out = (|| -> Result<(PathBuf, Report), String> {
+            let edits: HashMap<String, String> = serde_json::from_str(&edits_json).map_err(|e| format!("bad settings: {e}"))?;
+            let host = grubcfg::read_host();
+            let changes = grubcfg::to_changes(&host.defaults, &edits)?;
+            if changes.is_empty() { return Err("Nothing to change: the values are already what the file says.".into()); }
+            let stage = installer::stage_settings(&grubcfg::conf_text(&changes))?;
+            let (_, rep) = installer::run_helper("cplan", &[stage.to_string_lossy().into_owned()], &mut |_| {})?;
+            Ok((stage, rep))
+        })();
+        {
+            let mut s = lock(&INSTALL);
+            if s.seq != seq { return; }
+            match out { Ok((stage, rep)) => { if let Some(f) = rep.fatal.clone() { s.error = f; } s.stage = Some(stage); s.plan = Some(rep); } Err(e) => s.error = e }
+        }
+        push_install(&t);
+    });
+}
+
 fn install_run(t: &Ui, mode: &'static str, args: Vec<String>) {
     { let mut s = lock(&INSTALL); s.phase = "applying".into(); s.live.clear(); s.error.clear(); s.result = None; }
     push_install(t);
@@ -305,9 +329,26 @@ fn install_run(t: &Ui, mode: &'static str, args: Vec<String>) {
     });
 }
 
+static SYS_FONTS: LazyLock<Mutex<Option<Vec<fontconv::SysFont>>>> = LazyLock::new(|| Mutex::new(None));
+fn sys_fonts_json() -> String {
+    let mut g = lock(&SYS_FONTS);
+    if g.is_none() { *g = Some(fontconv::list_system_fonts()); }
+    serde_json::to_string(g.as_ref().unwrap()).unwrap_or_else(|_| "[]".into())
+}
+
 // ------------------------------------------------------------------ the QObject
 impl qobject::Backend {
-    pub fn call(mut self: Pin<&mut Self>, method: &QString, a: &QString, b: &QString) -> QString {
+    pub fn call(self: Pin<&mut Self>, method: &QString, a: &QString, b: &QString) -> QString {
+        // A Rust panic must never cross into Qt (that aborts the program with "fatal error"). Turn it into an error message.
+        let mut this = self;
+        let name = method.to_string();
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| this.as_mut().call_inner(method, a, b))) {
+            Ok(r) => r,
+            Err(_) => QString::from(&format!("ERR:internal error in \"{name}\" (details are in the crash log)")),
+        }
+    }
+
+    pub fn call_inner(mut self: Pin<&mut Self>, method: &QString, a: &QString, b: &QString) -> QString {
         let (m, a, b) = (method.to_string(), a.to_string(), b.to_string());
         let t = self.qt_thread();
         let mut mutated = true;
@@ -315,7 +356,7 @@ impl qobject::Backend {
             // ---- read-only
             "layers" => { mutated = false; ed().layers_json() }
             "inspector" => { mutated = false; ed().inspector_json() }
-            "status" => { mutated = false; let e = ed(); json!({"undo": e.can_undo(), "redo": e.can_redo(), "name": e.name, "menuSel": e.menu_sel, "progress": e.progress}).to_string() }
+            "status" => { mutated = false; let e = ed(); json!({"undo": e.can_undo(), "redo": e.can_redo(), "name": e.name, "menuSel": e.menu_sel, "progress": e.progress, "timeout": e.timeout_secs, "clipboard": e.has_clipboard(), "entries": if e.entries.is_empty() { 5 } else { e.entries.len() }}).to_string() }
             // ---- editing
             "undo" => { ed().undo(); String::new() }
             "redo" => { ed().redo(); String::new() }
@@ -356,7 +397,81 @@ impl qobject::Backend {
             "center" => { let mut e = ed(); if let Some(u) = e.selected { e.center(u, a == "x"); } String::new() }
             "solidStyle" => { let mut e = ed(); if let Some(u) = e.selected { e.add_solid_style(u, &a, &b); } String::new() }
             "menuSel" => { ed().menu_sel = a.parse().unwrap_or(0); String::new() }
-            "progress" => { ed().progress = a.parse().unwrap_or(0.5); String::new() }
+            // countdown shown in the preview, in seconds (default 5); "progress" is the old name
+            "timeout" | "progress" => { ed().set_timeout(a.parse::<f64>().unwrap_or(5.0).round() as i32); String::new() }
+            "timeoutVisible" => { ed().set_timeout_visible(a == "1"); String::new() }
+            "timeoutTotal" => { ed().set_timeout_total(a.parse().unwrap_or(5)); String::new() }
+            "accent" => { ed().set_accent(&a); String::new() }
+            // boot entries for the preview: JSON [{"title":..,"class":..}]; empty = the sample list
+            "entries" => {
+                let v: Vec<serde_json::Value> = serde_json::from_str(&a).unwrap_or_default();
+                ed().set_entries(v.iter().filter_map(|x| Some((x.get("title")?.as_str()?.to_string(), x.get("class").and_then(|c| c.as_str()).unwrap_or("gnu-linux").to_string()))).collect());
+                String::new()
+            }
+            // what this computer's GRUB looks like (for the live preview): entries, timeout, default
+            "hostSync" => {
+                mutated = false;
+                let h = grubcfg::read_host();
+                let timeout: i32 = grubcfg::current("timeout", &h.defaults).parse().unwrap_or(5);
+                let top: Vec<serde_json::Value> = h.entries.iter().filter(|e| e.depth == 0).map(|e| json!({"title": e.title, "class": e.class, "id": e.id})).collect();
+                let def: usize = { let d = grubcfg::current("default_entry", &h.defaults); d.split('>').next().and_then(|x| x.parse().ok()).unwrap_or(0) };
+                json!({"entries": top, "timeout": timeout.max(0), "default": def, "style": grubcfg::current("timeout_style", &h.defaults), "found": !h.entries.is_empty(), "file": h.cfg_file}).to_string()
+            }
+            "hostInfo" => { mutated = false; grubcfg::options_json(&grubcfg::read_host()).to_string() }
+            "cfgPlan" => { mutated = false; cfg_plan(&t, a); String::new() }
+            "cfgApply" => {
+                mutated = false;
+                let stage = lock(&INSTALL).stage.clone();
+                match stage { Some(st) => install_run(&t, "capply", vec![st.to_string_lossy().into_owned()]), None => { lock(&INSTALL).error = "Nothing is prepared yet.".into(); push_install(&t); } }
+                String::new()
+            }
+            // ---- right-click / arrange operations
+            "copy" => { mutated = false; if let Ok(u) = a.parse() { ed().copy(u); } String::new() }
+            "cut" => { if let Ok(u) = a.parse() { ed().cut(u); } String::new() }
+            "paste" => { ed().paste().map(|u| u.to_string()).unwrap_or_default() }
+            "hasClipboard" => { mutated = false; if ed().has_clipboard() { "1".into() } else { "0".into() } }
+            "front" => { if let Ok(u) = a.parse() { ed().bring_to_front(u); } String::new() }
+            "back" => { if let Ok(u) = a.parse() { ed().send_to_back(u); } String::new() }
+            "group" => { a.parse().ok().and_then(|u| ed().group(u)).map(|u| u.to_string()).unwrap_or_default() }
+            "ungroup" => { if let Ok(u) = a.parse() { ed().ungroup(u); } String::new() }
+            "align" => { if let Ok(u) = a.parse() { ed().align(u, &b); } String::new() }
+            "presets" => { mutated = false; Editor::presets_json() }
+            "addPreset" => match ed().add_preset(&a, &b) { Some(u) => u.to_string(), None => format!("ERR:unknown preset {a}/{b}") },
+            // style designer: b = JSON {key, fill, fill2, opacity, radius, border_width, border, border_opacity}
+            "designStyle" => {
+                let v: serde_json::Value = serde_json::from_str(&b).unwrap_or_default();
+                let g = |k: &str, d: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or(d).to_string();
+                let n = |k: &str, d: u32| v.get(k).and_then(|x| x.as_u64()).unwrap_or(d as u64) as u32;
+                let spec = pimp_my_grub_core::styles::StyleSpec { fill: g("fill", "#ff6b6b"), fill2: g("fill2", ""), opacity: n("opacity", 100).min(100) as u8, radius: n("radius", 8).min(96), border_width: n("border_width", 0).min(32), border: g("border", "#ffffff"), border_opacity: n("border_opacity", 100).min(100) as u8 };
+                match (a.parse::<u64>(), g("key", "").as_str()) {
+                    (Ok(u), k) if !k.is_empty() => ed().design_style(u, k, &spec),
+                    (Err(_), k) if !k.is_empty() => { let mut e = ed(); let pat = e.new_style(&k.replace('-', "_"), &spec); e.set_global(k, &format!("\"{pat}\"")); pat }
+                    _ => "ERR:no item".into(),
+                }
+            }
+            // import a picture as a style: b = JSON {key, path, l, t, r, b}
+            "importStyle" => {
+                let v: serde_json::Value = serde_json::from_str(&b).unwrap_or_default();
+                let n = |k: &str| v.get(k).and_then(|x| x.as_u64()).unwrap_or(0) as u32;
+                let path = url_path(v.get("path").and_then(|x| x.as_str()).unwrap_or(""));
+                match (a.parse::<u64>(), std::fs::read(&path)) {
+                    (Ok(u), Ok(bytes)) => ed().import_style(u, v.get("key").and_then(|x| x.as_str()).unwrap_or("menu_pixmap_style"), &bytes, n("l"), n("t"), n("r"), n("b")).unwrap_or_else(|e| format!("ERR:{e}")),
+                    (_, Err(e)) => format!("ERR:{e}"),
+                    _ => "ERR:no item".into(),
+                }
+            }
+            // fonts installed on this computer, and conversion of one of them to a GRUB font
+            "sysFonts" => { mutated = false; sys_fonts_json() }
+            "addSysFont" => {
+                let v: serde_json::Value = serde_json::from_str(&a).unwrap_or_default();
+                let size: u32 = b.parse().unwrap_or(24);
+                let (path, family, style) = (v.get("path").and_then(|x| x.as_str()).unwrap_or(""), v.get("family").and_then(|x| x.as_str()).unwrap_or("Font"), v.get("style").and_then(|x| x.as_str()).unwrap_or("Regular"));
+                let index = v.get("index").and_then(|x| x.as_u64()).unwrap_or(0) as u32;
+                match std::fs::read(path).map_err(|e| e.to_string()).and_then(|d| fontconv::to_pf2(&d, index, size, family, style)) {
+                    Ok(pf2) => { let name = pimp_my_grub_core::pf2::read_name(&pf2); ed().add_asset(&format!("{}-{size}.pf2", safe_asset_name(&format!("{family}-{style}"))), pf2); name }
+                    Err(e) => format!("ERR:{e}"),
+                }
+            }
             "setName" => { let mut e = ed(); e.name = a.chars().map(|c| if c.is_ascii_alphanumeric() || "._-".contains(c) { c } else { '-' }).take(48).collect(); String::new() }
             "removeAsset" => { ed().remove_asset(&a); String::new() }
             "addAsset" => {
@@ -370,7 +485,7 @@ impl qobject::Backend {
             "addFont" => {
                 let p = url_path(&a);
                 let size: u32 = b.parse().unwrap_or(24);
-                match std::fs::read(&p).map_err(|e| e.to_string()).and_then(|ttf| installer::convert_font(&ttf, size)) {
+                match std::fs::read(&p).map_err(|e| e.to_string()).and_then(|ttf| fontconv::to_pf2_named_by_font(&ttf, size, &p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Font".into())).or_else(|_| installer::convert_font(&ttf, size))) {
                     Ok(pf2) => {
                         let name = pimp_my_grub_core::pf2::read_name(&pf2);
                         let stem = p.file_stem().map(|s| safe_asset_name(&s.to_string_lossy())).unwrap_or_else(|| "font".into());

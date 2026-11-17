@@ -8,7 +8,7 @@ fn main() {
                 "qml/StorePage.qml", "qml/InstallDialog.qml",
                 "qml/Tokens.qml", "qml/AppButton.qml", "qml/AppIconButton.qml", "qml/AppField.qml", "qml/AppSlider.qml", "qml/NavTab.qml",
                 "qml/AppComboBox.qml", "qml/AppCheckBox.qml", "qml/AppDialog.qml", "qml/ThemeDetail.qml", "qml/ZoomBar.qml", "qml/AppStepper.qml",
-                "qml/RoundedMask.qml", "qml/NativePick.qml", "qml/HeaderIcon.qml", "qml/AppearanceDialog.qml",
+                "qml/RoundedMask.qml", "qml/NativePick.qml", "qml/HeaderIcon.qml", "qml/AppearanceDialog.qml", "qml/AppSwitch.qml", "qml/ConfigPanel.qml", "qml/AppMenuItem.qml", "qml/PresetMenu.qml", "qml/ItemMenu.qml", "qml/StyleDesigner.qml", "qml/FontPicker.qml", "qml/LivePreview.qml", "qml/ClassicPage.qml", "qml/WarnBadge.qml",
             ])
             .depend("QtQuick"),
     )

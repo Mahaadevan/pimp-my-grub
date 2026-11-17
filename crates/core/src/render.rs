@@ -12,14 +12,14 @@ pub const SAMPLE_ENTRIES: [(&str, &str); 5] = [
     ("Windows Boot Manager", "windows"), ("UEFI Firmware Settings", "efi"),
 ];
 
-fn placeholder(t: &str) -> Option<&'static str> {
+fn placeholder(t: &str, secs: i32) -> Option<String> {
     Some(match t {
-        "@TIMEOUT_NOTIFICATION_SHORT@" => "Booting in 5s",
-        "@TIMEOUT_NOTIFICATION_MIDDLE@" => "Booting in 5 seconds",
-        "@TIMEOUT_NOTIFICATION_LONG@" => "The highlighted entry will be executed automatically in 5s.",
-        "@KEYMAP_SHORT@" => "enter: boot, e: options, c: cmd-line",
-        "@KEYMAP_MIDDLE@" => "Enter: Boot, e: Edit Boot Options, c: GRUB Command-Line",
-        "@KEYMAP_LONG@" => "Use the Up and Down keys to select which entry is highlighted. Press enter to boot the selected OS, e to edit the commands before booting or c for a command-line.",
+        "@TIMEOUT_NOTIFICATION_SHORT@" => format!("Booting in {secs}s"),
+        "@TIMEOUT_NOTIFICATION_MIDDLE@" => format!("Booting in {secs} seconds"),
+        "@TIMEOUT_NOTIFICATION_LONG@" => format!("The highlighted entry will be executed automatically in {secs}s."),
+        "@KEYMAP_SHORT@" => "enter: boot, e: options, c: cmd-line".into(),
+        "@KEYMAP_MIDDLE@" => "Enter: Boot, e: Edit Boot Options, c: GRUB Command-Line".into(),
+        "@KEYMAP_LONG@" => "Use the Up and Down keys to select which entry is highlighted. Press enter to boot the selected OS, e to edit the commands before booting or c for a command-line.".into(),
         _ => return None,
     })
 }
@@ -45,6 +45,12 @@ pub struct DrawOpts { pub menu_sel: usize, pub progress: f32 }
 
 #[derive(Default)]
 pub struct Scene {
+    /// Entries the boot menu shows: (title, class). Empty = a small sample list.
+    pub entries: Vec<(String, String)>,
+    /// The countdown items (id __timeout__) disappear after a key press in the live preview, as in GRUB.
+    pub hide_timeout: bool,
+    /// Seconds left on the countdown (shown by `%d` / `%02d` and the @TIMEOUT_NOTIFICATION_*@ texts).
+    pub secs: i32,
     pub images: HashMap<String, Pixmap>,
     pub fonts: HashMap<String, Pf2>,
     fallback: Option<Pf2>,
@@ -97,7 +103,7 @@ fn blit(dst: &mut Pixmap, src: &Pixmap, x: i32, y: i32, w: i32, h: i32) {
 }
 
 impl Scene {
-    pub fn new() -> Self { Scene { fallback: load_fallback_font(), ..Default::default() } }
+    pub fn new() -> Self { Scene { fallback: load_fallback_font(), secs: 5, ..Default::default() } }
 
     /// Decode new or changed assets. Returns true when anything changed.
     pub fn sync(&mut self, assets: &Assets) -> bool {
@@ -131,9 +137,12 @@ impl Scene {
             None => fill(dst, x, y + 4, self.text_w(name, t), 8, c), // no font anywhere: show a bar so layout stays visible
         }
     }
-    fn label_text<'a>(&self, c: &'a Comp) -> String {
+    fn label_text(&self, c: &Comp) -> String {
         let t = c.pu("text");
-        placeholder(t).map(|s| s.to_string()).unwrap_or_else(|| t.replace("%02d", "05").replace("%d", "5"))
+        placeholder(t, self.secs).unwrap_or_else(|| t.replace("%02d", &format!("{:02}", self.secs)).replace("%d", &self.secs.to_string()))
+    }
+    fn entry_list(&self) -> Vec<(String, String)> {
+        if self.entries.is_empty() { SAMPLE_ENTRIES.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect() } else { self.entries.clone() }
     }
 
     pub fn layout(&self, doc: &Doc) -> HashMap<u64, Rect> {
@@ -188,7 +197,7 @@ impl Scene {
         }
         fn walk(s: &Scene, dst: &mut Pixmap, list: &[Comp], rects: &HashMap<u64, Rect>, o: &DrawOpts) {
             for c in list {
-                if c.hidden { continue; }
+                if c.hidden || (s.hide_timeout && c.pu("id") == "__timeout__") { continue; }   // GRUB removes the countdown once a key is pressed
                 if let Some(r) = rects.get(&c.uid) { s.comp(dst, c, *r, o); }
                 walk(s, dst, &c.children, rects, o);
             }
@@ -250,20 +259,33 @@ impl Scene {
         let f = if c.pu("item_font").is_empty() { "Unifont Regular 16" } else { c.pu("item_font") };
         let sf = if c.pu("selected_item_font").is_empty() { f } else { c.pu("selected_item_font") };
         let (col, scol) = (parse_color(c.p("item_color"), (128, 128, 128)), parse_color(c.p("selected_item_color"), (255, 255, 255)));
-        let scroll = c.pu("scrollbar") == "true";
+        let entries = self.entry_list();
+        let total = entries.len().max(1);
+        let visible = (((r.h + sp) / (ih + sp).max(1)).max(1) as usize).min(total);
+        let sel_i = o.menu_sel % total;
+        let first = if sel_i >= visible { sel_i + 1 - visible } else { 0 };   // keep the selected row in view, like GRUB
+        let scroll = c.pu("scrollbar") == "true" && total > visible;
+        let sbw = if scroll { ev("scrollbar_width", r.w, 16) } else { 0 };
+        let (lp, rp) = (ev("scrollbar_left_pad", r.w, 0), ev("scrollbar_right_pad", r.w, 0));
+        let (tp, bp) = (ev("scrollbar_top_pad", r.h, 0), ev("scrollbar_bottom_pad", r.h, 0));
         self.nine(dst, c.pu("menu_pixmap_style"), r);
-        let visible = ((r.h + sp) / (ih + sp).max(1)).max(1) as usize;
-        let n = visible.min(SAMPLE_ENTRIES.len());
-        let w = r.w - if scroll { ev("scrollbar_width", r.w, 16) } else { 0 };
-        for (i, (label, class)) in SAMPLE_ENTRIES.iter().enumerate().take(n) {
-            let sel = i == o.menu_sel % SAMPLE_ENTRIES.len();
-            let row = Rect { x: r.x, y: r.y + i as i32 * (ih + sp), w, h: ih };
+        let w = r.w - if scroll { sbw + lp + rp } else { 0 };
+        for (row_i, (label, class)) in entries.iter().enumerate().skip(first).take(visible) {
+            let sel = row_i == sel_i;
+            let row = Rect { x: r.x, y: r.y + (row_i - first) as i32 * (ih + sp), w, h: ih };
             self.nine(dst, c.pu(if sel { "selected_item_pixmap_style" } else { "item_pixmap_style" }), row);
             let mut tx = row.x + pad;
             if iw > 0 { if let Some(icon) = self.images.get(&format!("icons/{class}.png")) { blit(dst, icon, tx, row.y + (ih - ihh) / 2, iw, ihh); } }
             tx += iw + if iw > 0 { isp } else { 0 };
             let fname = if sel { sf } else { f };
             self.text(dst, fname, label, tx, row.y + (ih - self.text_h(fname)) / 2, if sel { scol } else { col });
+        }
+        if scroll {
+            let frame = Rect { x: r.x + r.w - sbw - rp, y: r.y + tp, w: sbw, h: (r.h - tp - bp).max(1) };
+            let th = ((frame.h as i64 * visible as i64 / total as i64) as i32).max(8).min(frame.h);
+            let thumb = Rect { x: frame.x, y: frame.y + ((frame.h - th) as i64 * first as i64 / (total - visible).max(1) as i64) as i32, w: sbw, h: th };
+            if !self.nine(dst, c.pu("scrollbar_frame"), frame) { fill(dst, frame.x, frame.y, frame.w, frame.h, (44, 48, 56)); }
+            if !self.nine(dst, c.pu("scrollbar_thumb"), thumb) { fill(dst, thumb.x, thumb.y, thumb.w, thumb.h, (150, 156, 168)); }
         }
     }
 

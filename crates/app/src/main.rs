@@ -1,4 +1,4 @@
-//! Pimp my grub: native Qt 6 GRUB theme builder. All logic lives in pimp-my-grub-core; this crate is the Qt Quick shell.
+//! Pimp my GRUB: native Qt 6 GRUB theme builder. All logic lives in pimp-my-grub-core; this crate is the Qt Quick shell.
 mod backend;
 mod scene_item;
 
@@ -23,7 +23,30 @@ fn prefer_native_dialogs() {
     else if gtk_desktop && has("libqgtk3.so") { std::env::set_var("QT_QPA_PLATFORMTHEME", "gtk3"); }
 }
 
+/// Where diagnostics go (~/.cache/pimp-my-grub), so a user can send them when something goes wrong.
+fn cache_dir() -> std::path::PathBuf {
+    let base = std::env::var_os("XDG_CACHE_HOME").map(std::path::PathBuf::from).filter(|p| p.is_absolute())
+        .or_else(|| std::env::var_os("HOME").map(|h| std::path::Path::new(&h).join(".cache"))).unwrap_or_else(|| "/tmp".into());
+    base.join("pimp-my-grub")
+}
+
 fn main() {
+    // Log every Rust panic (with where it happened and a backtrace) to crash.log; the app itself keeps running.
+    std::panic::set_hook(Box::new(|info| {
+        use std::io::Write;
+        let dir = cache_dir();
+        let _ = std::fs::create_dir_all(&dir);
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(dir.join("crash.log")) {
+            let _ = writeln!(f, "--- pimp-my-grub {} panic ---\n{info}\n{}\n", env!("CARGO_PKG_VERSION"), std::backtrace::Backtrace::force_capture());
+        }
+        eprintln!("pimp-my-grub: internal error: {info}");
+    }));
+    // The interface is light and the preview is drawn by the CPU anyway, so Qt Quick's software renderer is used by default. It needs
+    // no GPU driver (VMs, remote sessions, odd drivers, Wayland without EGL), which was the one thing that could abort the whole
+    // program at start. Set PIMPMYGRUB_GPU=1 (or QT_QUICK_BACKEND yourself) to use the GPU instead.
+    if std::env::var_os("QT_QUICK_BACKEND").is_none() && std::env::var("PIMPMYGRUB_GPU").map(|v| v != "1").unwrap_or(true) {
+        std::env::set_var("QT_QUICK_BACKEND", "software");
+    }
     prefer_native_dialogs();
     // The UI draws its own dark GrubStudio-style look, which needs a style that allows full customisation.
     // Basic ships with every Qt 6 install; set QT_QUICK_CONTROLS_STYLE yourself to override.

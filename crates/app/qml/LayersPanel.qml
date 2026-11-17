@@ -6,12 +6,13 @@ ColumnLayout {
     readonly property var t: Tokens {}
     id: root
     property var backend
+    property var ctxMenu: null
     property var rows: []
     property int rev: backend ? backend.rev : 0
     onRevChanged: reload()
     Component.onCompleted: reload()
     function reload() { rows = JSON.parse(backend.call("layers", "", "")) }
-    readonly property var icons: ({ boot_menu: "☰", label: "T", image: "▣", progress_bar: "▬", circular_progress: "◔", canvas: "▢", vbox: "⫶", hbox: "⋯" })
+    readonly property var icons: ({ boot_menu: "☰", label: "T", image: "▣", progress_bar: "▬", circular_progress: "◔", canvas: "▢", vbox: "⋮", hbox: "⋯" })
     spacing: 0
 
     Label { text: qsTr("LAYERS"); font.bold: true; font.pixelSize: 11; font.letterSpacing: 0.8; color: t.muted
@@ -32,12 +33,13 @@ ColumnLayout {
                 Rectangle { width: 2; height: parent.height; color: t.accent; visible: modelData.selected }
             }
             onClicked: root.backend.call("select", modelData.uid.toString(), "")
+            TapHandler { acceptedButtons: Qt.RightButton; onTapped: (pt) => { root.backend.call("select", modelData.uid.toString(), ""); if (root.ctxMenu) root.ctxMenu.openAt(parent, pt.position.x, pt.position.y) } }
             contentItem: RowLayout {
                 spacing: 6
                 Label { text: root.icons[modelData.type] || "?"; Layout.preferredWidth: 16; horizontalAlignment: Text.AlignHCenter; color: modelData.selected ? t.accent : t.muted }
                 Label { text: modelData.label; Layout.fillWidth: true; elide: Text.ElideRight; opacity: modelData.hidden ? 0.4 : 1 }
-                AppIconButton { text: modelData.locked ? "🔒" : "·"; padding: 2; implicitWidth: 22; implicitHeight: 22; flat: true; onClicked: root.backend.call("toggle", modelData.uid.toString(), "locked") }
-                AppIconButton { text: modelData.hidden ? "○" : "●"; padding: 2; implicitWidth: 22; implicitHeight: 22; flat: true; onClicked: root.backend.call("toggle", modelData.uid.toString(), "hidden") }
+                AppIconButton { tip: modelData.locked ? qsTr("Locked: click to unlock") : qsTr("Click to lock the position"); text: modelData.locked ? "◆" : "·"; padding: 2; implicitWidth: 22; implicitHeight: 22; flat: true; onClicked: root.backend.call("toggle", modelData.uid.toString(), "locked") }
+                AppIconButton { tip: modelData.hidden ? qsTr("Hidden: click to show") : qsTr("Click to hide in the preview and export"); text: modelData.hidden ? "○" : "●"; padding: 2; implicitWidth: 22; implicitHeight: 22; flat: true; onClicked: root.backend.call("toggle", modelData.uid.toString(), "hidden") }
             }
         }
         Label { anchors.centerIn: parent; width: parent.width - 30; visible: root.rows.length === 0; wrapMode: Text.Wrap; color: t.muted2
@@ -46,9 +48,9 @@ ColumnLayout {
     Flow {
         Layout.fillWidth: true; Layout.margins: 10; spacing: 6
         visible: root.rows.some(function(r) { return r.selected })
-        AppButton { text: "↑"; onClicked: root.backend.call("reorder", "1", ""); ToolTip.text: qsTr("Bring forward ( ] )"); ToolTip.visible: hovered }
-        AppButton { text: "↓"; onClicked: root.backend.call("reorder", "-1", ""); ToolTip.text: qsTr("Send backward ( [ )"); ToolTip.visible: hovered }
-        AppButton { text: qsTr("Duplicate"); onClicked: root.backend.call("duplicate", "", "") }
-        AppButton { text: qsTr("Delete"); onClicked: root.backend.call("remove", "", "") }
+        AppButton { text: "↑"; onClicked: root.backend.call("reorder", "1", ""); tip: qsTr("Bring the selected item forward ( ] )") }
+        AppButton { text: "↓"; onClicked: root.backend.call("reorder", "-1", ""); tip: qsTr("Send the selected item backward ( [ )") }
+        AppButton { text: qsTr("Duplicate"); tip: qsTr("Make a copy of the selected item (Ctrl+D)"); onClicked: root.backend.call("duplicate", "", "") }
+        AppButton { text: qsTr("Delete"); tip: qsTr("Remove the selected item (Delete key)"); onClicked: root.backend.call("remove", "", "") }
     }
 }

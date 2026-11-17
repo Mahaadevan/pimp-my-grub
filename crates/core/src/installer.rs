@@ -84,6 +84,18 @@ pub fn stage_theme(files: &BTreeMap<String, Vec<u8>>) -> Result<PathBuf, String>
     Ok(dir)
 }
 
+/// A private folder holding just `settings.conf`, for the helper's `cplan` / `capply`.
+pub fn stage_settings(conf: &str) -> Result<PathBuf, String> {
+    let root = stage_root();
+    if root.exists() { if let Ok(rd) = std::fs::read_dir(&root) { for e in rd.flatten() { let _ = std::fs::remove_dir_all(e.path()); } } }
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|e| e.to_string())?.as_nanos();
+    let dir = root.join(format!("stage-{nanos}"));
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).map_err(|e| e.to_string())?;
+    std::fs::write(dir.join("settings.conf"), conf).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
 pub fn read_dir_files(dir: &Path) -> Result<BTreeMap<String, Vec<u8>>, String> {
     fn walk(d: &Path, base: &Path, depth: usize, out: &mut BTreeMap<String, Vec<u8>>, total: &mut usize) -> Result<(), String> {
         if depth > 6 { return Ok(()); }
@@ -150,12 +162,12 @@ pub fn convert_font(ttf: &[u8], size: u32) -> Result<Vec<u8>, String> {
 /// Run the helper. `status` and `plan` are read-only and run as the user; the rest go through pkexec.
 /// Returns the process exit code and the parsed report.
 pub fn run_helper(mode: &str, args: &[String], on_line: &mut dyn FnMut(&str)) -> Result<(i32, Report), String> {
-    let privileged = match mode { "status" | "plan" => false, "apply" | "rollback" | "uninstall" => true, _ => return Err("unknown mode".into()) };
-    if matches!(mode, "plan" | "apply") {
+    let privileged = match mode { "status" | "plan" | "cplan" => false, "apply" | "capply" | "rollback" | "uninstall" => true, _ => return Err("unknown mode".into()) };
+    if matches!(mode, "plan" | "apply" | "cplan" | "capply") {
         let stage = args.first().ok_or("missing staged folder")?;
         let canon = std::fs::canonicalize(stage).map_err(|e| e.to_string())?;
         let root = std::fs::canonicalize(stage_root()).map_err(|e| e.to_string())?;
-        if !canon.starts_with(&root) { return Err("staged folder is outside the Pimp my grub staging area".into()); }
+        if !canon.starts_with(&root) { return Err("staged folder is outside the Pimp my GRUB staging area".into()); }
     }
     let installed = Path::new(INSTALLED_HELPER).is_file();
     let mut cmd;

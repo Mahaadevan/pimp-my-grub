@@ -136,3 +136,124 @@ fn zoom_ladder_and_centre() {
     let after = e.to_world_pub(500.0, 350.0);
     assert!((before.0 - after.0).abs() < 1e-6 && (before.1 - after.1).abs() < 1e-6);
 }
+
+#[test]
+fn builtin_fonts_parse_and_are_added_to_the_theme_when_chosen() {
+    use pimp_my_grub_core::{builtin_fonts, pf2};
+    assert!(builtin_fonts::FONTS.len() >= 20);
+    for f in builtin_fonts::FONTS {
+        let p = pf2::parse(f.data).unwrap_or_else(|| panic!("{} does not parse", f.file));
+        assert_eq!(p.name, f.name, "name in {} differs from the table", f.file);
+    }
+    let mut e = Editor::default();
+    e.add("label", &[]);
+    let uid = e.selected.expect("label selected");
+    assert!(!e.inspector_json().contains("\"Inter Regular 24\"") || e.inspector_json().contains("Inter Regular 24"), "listed in the dropdown");
+    e.set_prop(uid, "font", "\"Inter Regular 24\"");
+    assert!(e.inspector_json().contains("Inter Regular 24"));
+    assert!(e.files().iter().any(|(n, _)| n == "inter-regular-24.pf2"), "the .pf2 is exported with the theme");
+}
+
+// ---------------------------------------------------------------- presets, styles, operations, fonts
+
+
+#[test]
+fn every_preset_can_be_added_and_rendered() {
+    use pimp_my_grub_core::preset_list;
+    for kind in ["boot_menu", "label", "rectangle", "progress_bar", "circular_progress", "canvas"] {
+        let presets = preset_list(kind);
+        assert!(presets.len() >= 3, "{kind} has presets");
+        for p in presets {
+            let mut e = Editor::default();
+            let uid = e.add_preset(kind, p.id).unwrap_or_else(|| panic!("{kind}/{} not added", p.id));
+            assert!(e.selected == Some(uid) || e.selected.is_some());
+            let (px, w, h) = { let (d, w, h) = e.render_live(960, 540).expect("renders"); (d.to_vec(), w, h) };
+            assert_eq!(px.len() as u32, w * h * 4);
+            // every file the preset refers to exists in the theme, and the exported theme.txt parses back
+            let files = e.files();
+            let txt = String::from_utf8(files["theme.txt"].clone()).unwrap();
+            assert!(txt.contains("boot_menu") || txt.contains("label") || txt.contains("image") || txt.contains("progress") || txt.contains("canvas") || txt.contains("vbox") || txt.contains("hbox"), "{kind}/{} wrote a component", p.id);
+            let (_, comps) = parse_theme(&txt);
+            assert!(!comps.is_empty(), "{kind}/{} survives a theme.txt round trip", p.id);
+        }
+    }
+}
+
+#[test]
+fn style_designer_makes_nine_valid_slices_and_a_menu_uses_them() {
+    use pimp_my_grub_core::styles::{render_slices, StyleSpec};
+    let spec = StyleSpec { fill: "#ff6b6b".into(), fill2: "#c0392b".into(), opacity: 90, radius: 12, border_width: 2, border: "#ffffff".into(), border_opacity: 60 };
+    let s = render_slices(&spec);
+    assert_eq!(s.len(), 9);
+    for (name, bytes) in &s { let img = image::load_from_memory(bytes).unwrap_or_else(|_| panic!("{name} is not a PNG")); assert!(img.width() >= 1 && img.height() >= 1); }
+    assert_eq!(image::load_from_memory(&s["nw"]).unwrap().width(), 12, "corner slice is as big as the radius");
+    let mut e = Editor::default();
+    let menu = e.add("boot_menu", &[]);
+    let pat = e.design_style(menu, "selected_item_pixmap_style", &spec);
+    assert!(pat.ends_with("_*.png"));
+    let files = e.files();
+    for slice in ["nw", "n", "ne", "w", "c", "e", "sw", "s", "se"] { assert!(files.keys().any(|k| k == &pat.replace('*', slice)), "slice {slice} exported"); }
+    assert!(e.inspector_json().contains(&pat), "the new style appears in the style dropdown");
+}
+
+#[test]
+fn a_picture_can_be_cut_into_a_style() {
+    use pimp_my_grub_core::styles::{render_slices, slice_image, StyleSpec};
+    let big = render_slices(&StyleSpec { radius: 20, ..Default::default() });
+    let one = { let c = image::RgbaImage::from_pixel(60, 40, image::Rgba([10, 200, 90, 255])); let mut o = std::io::Cursor::new(vec![]); c.write_to(&mut o, image::ImageFormat::Png).unwrap(); o.into_inner() };
+    assert_eq!(slice_image(&one, 10, 8, 10, 8).unwrap().len(), 9);
+    assert!(slice_image(&one, 40, 8, 30, 8).is_err(), "corners larger than the picture are refused");
+    assert!(!big.is_empty());
+    let mut e = Editor::default();
+    let m = e.add("boot_menu", &[]);
+    assert!(e.import_style(m, "menu_pixmap_style", &one, 10, 8, 10, 8).unwrap().ends_with("_*.png"));
+}
+
+#[test]
+fn clipboard_order_group_and_align() {
+    let mut e = Editor::default();
+    let a = e.add("label", &[("left", "10".into()), ("top", "10".into()), ("width", "200".into()), ("height", "30".into()), ("text", "\"A\"".into())]);
+    let b = e.add("label", &[("left", "10".into()), ("top", "60".into()), ("width", "200".into()), ("height", "30".into()), ("text", "\"B\"".into())]);
+    assert!(e.copy(a)); let p = e.paste().unwrap(); assert_ne!(p, a);
+    assert_eq!(e.doc.root.len(), 3);
+    e.bring_to_front(a); assert_eq!(e.doc.root.last().unwrap().uid, a);
+    e.send_to_back(a); assert_eq!(e.doc.root[0].uid, a);
+    assert!(e.cut(b)); assert_eq!(e.doc.root.len(), 2); assert!(e.paste().is_some()); assert_eq!(e.doc.root.len(), 3);
+    let g = e.group(a).unwrap();
+    assert_eq!(e.doc.root.iter().find(|c| c.uid == g).unwrap().children.len(), 1);
+    assert!(e.ungroup(g)); assert!(e.doc.root.iter().any(|c| c.uid == a), "ungroup puts the item back");
+    e.align(a, "right"); let r = e.doc.root.iter().find(|c| c.uid == a).unwrap().props["left"].clone(); assert_eq!(r, "100%-200");
+    e.align(a, "left"); assert_eq!(e.doc.root.iter().find(|c| c.uid == a).unwrap().props["left"], "0");
+    e.undo(); assert_eq!(e.doc.root.iter().find(|c| c.uid == a).unwrap().props["left"], "100%-200", "alignment is undoable");
+}
+
+#[test]
+fn countdown_labels_follow_the_timeout_and_the_menu_shows_host_entries() {
+    let mut e = Editor::default();
+    e.add("label", &[("id", "\"__timeout__\"".into()), ("left", "0".into()), ("top", "0".into()), ("width", "400".into()), ("height", "40".into()), ("text", "\"T-%02d\"".into())]);
+    let before = e.render_live(640, 360).unwrap().0.to_vec();
+    e.set_timeout(3);
+    assert!((e.progress - 0.6).abs() < 1e-6, "3 of 5 seconds left is 60%");
+    let after = e.render_live(640, 360).unwrap().0.to_vec();
+    assert_ne!(before, after, "the label changed when the countdown moved");
+    e.set_timeout_total(10); assert!((e.progress - 0.3).abs() < 1e-6);
+    e.add("boot_menu", &[]);
+    let sample = e.render_live(640, 360).unwrap().0.to_vec();
+    e.set_entries((0..12).map(|i| (format!("Entry number {i}"), "gnu-linux".to_string())).collect());
+    e.menu_sel = 11;
+    let long = e.render_live(640, 360).unwrap().0.to_vec();
+    assert_ne!(sample, long, "host entries replace the sample list, and the selected last row is scrolled into view");
+}
+
+#[test]
+fn fonts_convert_to_pf2_without_grub_tools() {
+    use pimp_my_grub_core::{fontconv, pf2};
+    let sys = fontconv::list_system_fonts();
+    // the bundled test font may not exist on every machine: use any installed one, or skip quietly
+    let Some(f) = sys.iter().find(|f| f.path.ends_with(".ttf") || f.path.ends_with(".otf")) else { eprintln!("no system font installed, skipping"); return };
+    let data = std::fs::read(&f.path).unwrap();
+    let pf = fontconv::to_pf2(&data, f.index, 24, &f.family, &f.style).expect("converts");
+    let parsed = pf2::parse(&pf).expect("our own PF2 parses");
+    assert_eq!(parsed.name, format!("{} {} 24", f.family, f.style));
+    assert!(fontconv::to_pf2(&data, f.index, 3, "x", "y").is_err(), "silly sizes are refused");
+}

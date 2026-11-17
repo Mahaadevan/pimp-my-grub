@@ -46,7 +46,10 @@ ComboBox {
         background: Rectangle { radius: 6; color: item.highlighted ? t.surface3 : "transparent" }
     }
     popup: Popup {
-        y: c.height + 4; width: c.width; padding: 4
+        // wider than the field when needed (long names), and kept inside the window by sliding it left
+        readonly property real wanted: Math.max(c.width, Math.min(280, c.width + 120))
+        y: c.height + 4; width: wanted; padding: 4
+        x: (c.mapToItem(null, 0, 0).x + wanted > c.Window.width - 8) ? c.width - wanted : 0
         implicitHeight: Math.min(contentItem.implicitHeight + 8, 280)
         contentItem: ListView {
             clip: true; implicitHeight: contentHeight
