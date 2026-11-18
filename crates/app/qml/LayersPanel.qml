@@ -21,7 +21,7 @@ ColumnLayout {
     ListView {
         Layout.fillWidth: true; Layout.fillHeight: true; clip: true
         model: root.rows
-        ScrollBar.vertical: ScrollBar {}
+        ScrollBar.vertical: AppScrollBar { }
         delegate: ItemDelegate {
             id: rowDelegate
             width: ListView.view.width; height: 32

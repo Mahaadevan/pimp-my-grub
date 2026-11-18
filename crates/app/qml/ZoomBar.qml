@@ -14,7 +14,7 @@ Rectangle {
     signal center()
 
     implicitWidth: row.implicitWidth + 12; implicitHeight: 40
-    radius: 14; color: "#ea121214"
+    color: "#ea121214"
     border.width: 1; border.color: t.border2
 
     component IconBtn: Item {
@@ -24,7 +24,7 @@ Rectangle {
         signal clicked()
         implicitWidth: 32; implicitHeight: 32
         Rectangle {
-            anchors.fill: parent; anchors.margins: 1; radius: 9
+            anchors.fill: parent; anchors.margins: 1
             color: ma.pressed ? t.surface3 : ma.containsMouse ? t.surface2 : "transparent"
             Behavior on color { ColorAnimation { duration: 90 } }
         }
@@ -58,7 +58,7 @@ Rectangle {
         IconBtn { kind: "minus"; tip: qsTr("Zoom out  (−)"); onClicked: bar.zoomOut() }
         Item {
             width: 56; height: 32
-            Rectangle { anchors.fill: parent; anchors.margins: 1; radius: 9; color: zma.pressed ? t.surface3 : zma.containsMouse ? t.surface2 : "transparent" }
+            Rectangle { anchors.fill: parent; anchors.margins: 1; color: zma.pressed ? t.surface3 : zma.containsMouse ? t.surface2 : "transparent" }
             Text { anchors.centerIn: parent; text: bar.zoom + "%"; color: zma.containsMouse ? t.accent : t.text; font.pixelSize: 12; font.bold: true; font.family: t.mono }
             MouseArea { id: zma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: bar.actualSize() }
             ToolTip.visible: zma.containsMouse; ToolTip.delay: 450; ToolTip.text: qsTr("Actual size (100%)")

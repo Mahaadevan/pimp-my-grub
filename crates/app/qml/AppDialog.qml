@@ -7,7 +7,7 @@ Dialog {
     readonly property var t: Tokens {}
     modal: true; padding: 18
     anchors.centerIn: Overlay.overlay
-    background: Rectangle { radius: 14; color: t.surface; border.width: 1; border.color: t.border2 }
+    background: Rectangle { color: t.surface; border.width: 1; border.color: t.border2 }
     Overlay.modal: Rectangle { color: "#b0000000" }
     header: Label { text: c.title; color: t.text; font.bold: true; font.pixelSize: 15; leftPadding: 18; topPadding: 16; bottomPadding: 4 }
     footer: DialogButtonBox {

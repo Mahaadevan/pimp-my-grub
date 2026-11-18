@@ -19,19 +19,17 @@ AppDialog {
 
     function go(mode) { store.backend.call("storeGet", tid, mode + ":" + variantIndex); close() }
 
-    contentItem: ScrollView {
+    contentItem: ScrollView { ScrollBar.vertical: AppScrollBar { } ScrollBar.horizontal: AppScrollBar { }
         id: sv; clip: true; contentWidth: availableWidth
         ColumnLayout {
             width: sv.availableWidth; spacing: 12
             Rectangle {
-                Layout.fillWidth: true; Layout.preferredHeight: Math.min(width * 9 / 16, 300); radius: 10; color: t.bg; clip: true
+                Layout.fillWidth: true; Layout.preferredHeight: Math.min(width * 9 / 16, 300); color: t.bg; clip: true
                 Label { anchors.centerIn: parent; visible: big.status !== Image.Ready; color: t.muted
                     text: !dlg.theme ? "" : (dlg.theme.hasPreview ? qsTr("Loading preview…") : qsTr("This repository has no preview image.")) }
                 Image { id: big; anchors.fill: parent; source: dlg.theme ? dlg.theme.preview : ""; asynchronous: true; cache: false
                     fillMode: Image.PreserveAspectFit; sourceSize.width: 1280; visible: status === Image.Ready }
-                RoundedMask { anchors.fill: parent; radius: 10; color: t.surface }
-                Rectangle { anchors.fill: parent; radius: 10; color: "transparent"; border.width: 1; border.color: t.border; enabled: false }
-            }
+                Rectangle { anchors.fill: parent; color: "transparent"; border.width: 1; border.color: t.border; enabled: false }            }
             RowLayout {
                 Layout.fillWidth: true; spacing: 10
                 Label { text: dlg.theme ? dlg.theme.repo : ""; color: t.text; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
@@ -60,7 +58,7 @@ AppDialog {
         spacing: 8
         Item { Layout.fillWidth: true; Layout.leftMargin: 18 }
         AppButton { text: qsTr("Close"); onClicked: dlg.close() }
-        AppButton { enabled: !dlg.busy; text: qsTr("Edit"); onClicked: dlg.go("edit") }
-        AppButton { Layout.rightMargin: 18; Layout.topMargin: 12; Layout.bottomMargin: 14; enabled: !dlg.busy; highlighted: true; text: qsTr("Install"); onClicked: dlg.go("install") }
+        AppButton { enabled: !dlg.busy; text: qsTr("Edit Theme"); onClicked: dlg.go("edit") }
+        AppButton { Layout.rightMargin: 18; Layout.topMargin: 12; Layout.bottomMargin: 14; enabled: !dlg.busy; highlighted: true; text: qsTr("Install Theme"); onClicked: dlg.go("install") }
     }
 }

@@ -37,7 +37,7 @@ AppField {
         id: a
         property bool up
         width: 20; height: 13
-        Rectangle { anchors.fill: parent; radius: 4; color: ma.pressed ? c.t.surface3 : ma.containsMouse ? c.t.surface2 : "transparent" }
+        Rectangle { anchors.fill: parent; color: ma.pressed ? c.t.surface3 : ma.containsMouse ? c.t.surface2 : "transparent" }
         Canvas {
             anchors.centerIn: parent; width: 8; height: 5
             property color col: ma.containsMouse ? c.t.accent : c.t.muted

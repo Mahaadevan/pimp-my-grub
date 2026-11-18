@@ -36,19 +36,21 @@ ColumnLayout {
     Label { Layout.fillWidth: true; Layout.leftMargin: 16; visible: root.sd.note !== ""; text: root.sd.note; color: t.warn; wrapMode: Text.Wrap }
     BusyIndicator { id: spin; Layout.alignment: Qt.AlignHCenter; running: root.sd.pending > 0; visible: running; implicitHeight: 28; implicitWidth: 28
         contentItem: Item { implicitWidth: 28; implicitHeight: 28
-            Rectangle { anchors.centerIn: parent; width: 22; height: 22; radius: 11; color: "transparent"; border.width: 3; border.color: t.border2
-                Rectangle { width: 6; height: 6; radius: 3; color: t.accent; x: 8; y: -1 }
+            Rectangle { anchors.centerIn: parent; width: 22; height: 22; color: "transparent"; border.width: 3; border.color: t.border2
+                Rectangle { width: 6; height: 6; color: t.accent; x: 8; y: -1 }
                 RotationAnimator on rotation { from: 0; to: 360; duration: 900; loops: Animation.Infinite; running: spin.running } } } }
 
     GridView {
         id: grid
         Layout.fillWidth: true; Layout.fillHeight: true; clip: true
-        property int cols: Math.max(1, Math.floor((width - 18) / 250))
-        // keep the grid inside the margins
-        cellWidth: Math.floor((width - 18) / cols); cellHeight: 300
+        // One column per ~250 px, minus both margins and the vertical scroll bar, so the last card is never cut off
+        // at the window edge.
+        readonly property int gutter: 18 + 8
+        property int cols: Math.max(1, Math.floor((width - gutter) / 250))
+        cellWidth: Math.floor((width - gutter) / cols); cellHeight: 300
         leftMargin: 9; rightMargin: 9
         model: model
-        ScrollBar.vertical: ScrollBar {}
+        ScrollBar.vertical: AppScrollBar { }
         delegate: Item {
             id: card
             width: grid.cellWidth; height: grid.cellHeight
@@ -58,29 +60,28 @@ ColumnLayout {
             HoverHandler { id: hov }
             Pane {
                 anchors.fill: parent; anchors.margins: 7; padding: 0; clip: true
-                background: Rectangle { radius: 12; color: t.surface }
+                background: Rectangle { color: t.surface }
                 // Clicking anywhere on the card (the thumbnail, the title) opens the detail view.
                 TapHandler { onTapped: root.openDetail(model.tid, card.variantIndex); cursorShape: Qt.PointingHandCursor }
                 Rectangle {   // the card outline, drawn above the image so it is never covered
-                    anchors.fill: parent; radius: 12; color: "transparent"; z: 20; enabled: false
+                    anchors.fill: parent; color: "transparent"; z: 20; enabled: false
                     border.width: 1; border.color: hov.hovered ? t.accent : t.border
                     Behavior on border.color { ColorAnimation { duration: 120 } }
                 }
                 ColumnLayout {
                     anchors.fill: parent; spacing: 0
                     Rectangle {
-                        Layout.fillWidth: true; Layout.preferredHeight: width * 9 / 16; color: t.surface2; radius: 0
+                        Layout.fillWidth: true; Layout.preferredHeight: width * 9 / 16; color: t.surface2
                         Label { anchors.centerIn: parent; text: model.name.substring(0, 2).toUpperCase(); font.pixelSize: 26; font.bold: true; color: t.accent; opacity: 0.55; visible: img.status !== Image.Ready }
                         Image { id: img; anchors.fill: parent; source: model.preview; asynchronous: true; cache: false; fillMode: Image.PreserveAspectCrop; sourceSize.width: 480; visible: status === Image.Ready }
-                        // square image corners are hidden behind the card's rounded corners
-                        RoundedMask { anchors.fill: parent; radius: 12; color: t.bg; topOnly: true; z: 2 }
+                        // the card clips the thumbnail to its own square outline
                         Rectangle {
                             anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 9; z: 3
-                            width: 24; height: 24; radius: 12; color: "#e609090b"; border.width: 1; border.color: t.border2
+                            width: 24; height: 24; color: "#e609090b"; border.width: 1; border.color: t.border2
                             visible: hov.hovered
                             // drawn from shapes (not text) so it has no colour fringing over the image
-                            Rectangle { x: 10.5; y: 5.5; width: 3; height: 3; radius: 1.5; color: t.text }
-                            Rectangle { x: 10.5; y: 10; width: 3; height: 8; radius: 1.2; color: t.text }
+                            Rectangle { x: 10.5; y: 5.5; width: 3; height: 3; color: t.text }
+                            Rectangle { x: 10.5; y: 10; width: 3; height: 8; color: t.text }
                         }
                     }
                     ColumnLayout {
@@ -96,9 +97,9 @@ ColumnLayout {
                         }
                         RowLayout {
                             Layout.fillWidth: true; Layout.preferredHeight: 32
-                            AppButton { Layout.fillWidth: true; enabled: root.sd.busy === ""; text: root.sd.busy === model.tid ? root.sd.progress : qsTr("Edit")
+                            AppButton { Layout.fillWidth: true; enabled: root.sd.busy === ""; text: root.sd.busy === model.tid ? root.sd.progress : qsTr("Edit Theme")
                                 onClicked: root.backend.call("storeGet", model.tid, "edit:" + card.variantIndex) }
-                            AppButton { Layout.fillWidth: true; highlighted: true; enabled: root.sd.busy === ""; text: qsTr("Install")
+                            AppButton { Layout.fillWidth: true; highlighted: true; enabled: root.sd.busy === ""; text: qsTr("Install Theme")
                                 onClicked: root.backend.call("storeGet", model.tid, "install:" + card.variantIndex) }
                         }
                     }

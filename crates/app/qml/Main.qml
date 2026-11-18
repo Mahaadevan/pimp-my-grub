@@ -9,7 +9,7 @@ ApplicationWindow {
     id: win
     width: 1280; height: 800; minimumWidth: 1120; minimumHeight: 600
     visible: true
-    title: "Pimp my GRUB"
+    title: "Pimp My GRUB"
     color: t.bg
     font.pixelSize: 13
     // The app ships its own fonts (Inter for the UI, a symbol font for the icons) so it looks the same on a machine with no fonts installed.
@@ -53,13 +53,8 @@ ApplicationWindow {
             Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: t.border }
         }
         RowLayout {
-            anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 12; spacing: 8
-            // brand
-            Rectangle {
-                width: 26; height: 26; radius: 7; color: t.accent
-                Text { anchors.centerIn: parent; text: "›_"; color: t.accentFg; font.bold: true; font.pixelSize: 13; font.family: t.mono }
-            }
-            Label { text: "Pimp my <font color='" + t.accent + "'>GRUB</font>"; textFormat: Text.StyledText; font.bold: true; font.pixelSize: 16; Layout.rightMargin: 10 }
+            anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 12; spacing: 6
+            Label { text: "Pimp My <font color='" + t.accent + "'>GRUB</font>"; textFormat: Text.StyledText; font.bold: true; font.pixelSize: 16; Layout.rightMargin: 10 }
             TabBar {
                 id: tabs
                 visible: !win.classic
@@ -69,8 +64,10 @@ ApplicationWindow {
                 NavTab { text: qsTr("GRUB settings"); width: implicitWidth }
             }
             Item { Layout.fillWidth: true }
+            // Shrinks instead of pushing the right-hand icons out of the window on a narrow screen.
             AppField {
-                visible: !win.classic; Layout.preferredWidth: 150; text: win.st.name; placeholderText: qsTr("Theme name")
+                visible: !win.classic; Layout.fillWidth: true; Layout.minimumWidth: 90; Layout.maximumWidth: 160
+                text: win.st.name; placeholderText: qsTr("Theme name")
                 onEditingFinished: backend.call("setName", text, "")
             }
             AppIconButton { visible: !win.classic; text: "↶"; enabled: win.st.undo; onClicked: backend.call("undo", "", ""); tip: qsTr("Undo the last edit (Ctrl+Z)") }
@@ -78,9 +75,9 @@ ApplicationWindow {
             Rectangle { width: 1; height: 20; color: t.border; Layout.leftMargin: 2; Layout.rightMargin: 2 }
             AppButton { visible: !win.classic; text: qsTr("New"); tip: qsTr("Start an empty theme"); onClicked: backend.call("new", "", "") }
             AppButton { visible: !win.classic; text: qsTr("Open…"); tip: qsTr("Open a theme folder or a .zip to edit"); onClicked: openMenu.open()
-                Menu { id: openMenu
-                    MenuItem { text: qsTr("Theme folder…"); onTriggered: openFolderDlg.open() }
-                    MenuItem { text: qsTr("Zip archive…"); onTriggered: openZipDlg.open() }
+                AppMenu { id: openMenu
+                    AppMenuItem { text: qsTr("Theme folder…"); onTriggered: openFolderDlg.open() }
+                    AppMenuItem { text: qsTr("Zip archive…"); onTriggered: openZipDlg.open() }
                 } }
             AppButton { visible: !win.classic; text: qsTr("Export…"); tip: qsTr("Save the theme as a folder you can copy to /boot/grub/themes yourself"); onClicked: exportDlg.open() }
             AppButton { flat: true; text: qsTr("Manage"); onClicked: installDialog.openFor("manage"); tip: qsTr("Undo the last GRUB change, or remove everything this app installed") }
@@ -100,7 +97,7 @@ ApplicationWindow {
         Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: t.border }
         RowLayout {
             anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 8
-            Rectangle { width: 7; height: 7; radius: 4; color: t.ok }
+            Rectangle { width: 7; height: 7; color: t.ok }
             Label { text: qsTr("Ready"); font.pixelSize: 11; color: t.muted }
             Label { text: "•"; font.pixelSize: 11; color: t.muted2 }
             Label { text: qsTr("Live preview active"); font.pixelSize: 11; color: t.muted }
@@ -138,8 +135,8 @@ ApplicationWindow {
         id: toast; visible: false; z: 10; padding: 10
         anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 18
         leftPadding: 14; rightPadding: 14
-        background: Rectangle { radius: 10; color: t.surface3; border.color: t.border2
-            Rectangle { x: 0; y: 8; width: 3; height: parent.height - 16; radius: 2; color: t.accent } }
+        background: Rectangle { color: t.surface3; border.color: t.border2
+            Rectangle { x: 0; y: 8; width: 3; height: parent.height - 16; color: t.accent } }
         color: t.text
         Timer { id: toastTimer; interval: 3500; onTriggered: toast.visible = false }
     }

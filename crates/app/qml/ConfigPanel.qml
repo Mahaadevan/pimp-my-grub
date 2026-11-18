@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// The GRUB settings that live in /etc/default/grub, as switches, numbers and choices. The values are read from this
+// The GRUB settings that live in /etc/default/grub, as checkboxes, numbers and choices. The values are read from this
 // computer; nothing is written until the person reviews the exact change and confirms it (the helper keeps a backup).
 Item {
     id: root
@@ -12,9 +12,18 @@ Item {
     property var info: ({ options: [], entries: [], file: "", readable: true })
     property var edits: ({})                        // id -> new value (only what differs from the file)
     readonly property int pending: Object.keys(edits).length
+    property string note: ""                        // why an administrator read failed, if it did
     signal review(var edits)
 
-    function reload() { info = JSON.parse(backend.call("hostInfo", "", "")); edits = ({}) }
+    function reload() { info = JSON.parse(backend.call("hostInfo", "", "")); edits = ({}); note = "" }
+    // Most systems keep /etc/default/grub and grub.cfg readable by root only. This asks the helper (one polkit password
+    // prompt) to copy them somewhere this user can read; it changes nothing on the system.
+    function readElevated() {
+        note = ""
+        var r = backend.call("hostInfoElevated", "", "")
+        if (r.indexOf("ERR:") === 0) { note = r.substring(4); return }
+        info = JSON.parse(r); edits = ({})
+    }
     Component.onCompleted: reload()
 
     function base(id) { for (var i = 0; i < info.options.length; i++) if (info.options[i].id === id) return info.options[i].value; return "" }
@@ -43,16 +52,25 @@ Item {
             Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: t.border }
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 14; spacing: 10
-                Label {
-                    id: hint; Layout.fillWidth: true; wrapMode: Text.Wrap; color: t.muted; font.pixelSize: 12
-                    text: root.info.readable
-                          ? qsTr("These values are read from <b>%1</b> on this computer. Nothing changes until you press <b>Review changes</b>, check the exact difference and confirm. A backup is made first and every change can be undone.").arg(root.info.file)
-                          : qsTr("<b>%1</b> could not be read. The values below are GRUB's defaults.").arg(root.info.file)
+                ColumnLayout {
+                    Layout.fillWidth: true; spacing: 3
+                    Label {
+                        id: hint; Layout.fillWidth: true; wrapMode: Text.Wrap; color: t.muted; font.pixelSize: 12
+                        text: root.info.readable
+                              ? qsTr("These values are read from <b>%1</b> on this computer. Nothing changes until you press <b>Review changes</b>, check the exact difference and confirm. A backup is made first and every change can be undone.").arg(root.info.file)
+                              : qsTr("<b>%1</b> could not be read: this system lets only root read it, so the values below are GRUB's defaults. Press <b>Read as administrator</b> to see the real ones.").arg(root.info.file)
+                    }
+                    Label { visible: root.note !== ""; Layout.fillWidth: true; text: root.note; color: t.warn; font.pixelSize: 12; wrapMode: Text.Wrap }
                 }
+                // Shown when the files are out of reach: grub.cfg is root-only even where /etc/default/grub is not, and
+                // without it there are no boot entries (so "default entry" would only offer made-up numbers).
+                AppButton { visible: !root.info.readable || root.info.entries.length === 0; highlighted: true; text: qsTr("Read as administrator…")
+                    tip: qsTr("Reads /etc/default/grub and grub.cfg with administrator rights (polkit asks for your password once). Nothing is changed by doing this.")
+                    onClicked: root.readElevated() }
                 AppButton { text: qsTr("Reload"); tip: qsTr("Read the file again and forget unsaved edits"); onClicked: root.reload() }
             }
         }
-        ScrollView {
+        ScrollView { ScrollBar.vertical: AppScrollBar { } ScrollBar.horizontal: AppScrollBar { }
             id: sv; Layout.fillWidth: true; Layout.fillHeight: true; clip: true; contentWidth: availableWidth
             ColumnLayout {
                 width: Math.min(sv.availableWidth, 860); x: Math.max(0, (sv.availableWidth - width) / 2)
@@ -67,7 +85,7 @@ Item {
                         visible: rows.length > 0; Layout.fillWidth: true; Layout.leftMargin: 14; Layout.rightMargin: 14; spacing: 0
                         Label { text: modelData.toUpperCase(); color: t.muted; font.pixelSize: 11; font.bold: true; font.letterSpacing: 0.8; bottomPadding: 6; topPadding: 6 }
                         Rectangle {
-                            Layout.fillWidth: true; implicitHeight: col.implicitHeight; radius: 12; color: t.surface; border.width: 1; border.color: t.border
+                            Layout.fillWidth: true; implicitHeight: col.implicitHeight; color: t.surface; border.width: 1; border.color: t.border
                             ColumnLayout {
                                 id: col; width: parent.width; spacing: 0
                                 Repeater {
@@ -80,7 +98,7 @@ Item {
                                         readonly property bool changed: root.edits.hasOwnProperty(o.id)
                                         Layout.fillWidth: true; implicitHeight: Math.max(52, line.implicitHeight + 18)
                                         Rectangle { visible: row.index > 0; anchors.top: parent.top; width: parent.width - 28; x: 14; height: 1; color: t.border }
-                                        Rectangle { visible: row.changed; width: 3; height: parent.height - 16; y: 8; radius: 2; color: t.accent }
+                                        Rectangle { visible: row.changed; width: 3; height: parent.height - 16; y: 8; color: t.accent }
                                         RowLayout {
                                             id: line; anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
                                             anchors.leftMargin: 16; anchors.rightMargin: 14; spacing: 10
@@ -116,7 +134,7 @@ Item {
             Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: t.border }
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 14; spacing: 10
-                Rectangle { width: 8; height: 8; radius: 4; color: root.pending > 0 ? t.accent : t.border2 }
+                Rectangle { width: 8; height: 8; color: root.pending > 0 ? t.accent : t.border2 }
                 Label { text: root.pending > 0 ? qsTr("%n unsaved change(s)", "", root.pending) : qsTr("No changes yet"); color: root.pending > 0 ? t.text : t.muted; font.pixelSize: 12 }
                 Item { Layout.fillWidth: true }
                 AppButton { text: qsTr("Discard"); enabled: root.pending > 0; tip: qsTr("Throw away the edits on this page"); onClicked: root.discard() }
@@ -128,7 +146,7 @@ Item {
     }
 
     Component { id: swc
-        AppSwitch { checked: root.val(opt.id) === "true"; enabled: root.enabledFor(opt.id); tip: opt.tip; onToggled: root.setVal(opt.id, checked ? "true" : "false") } }
+        AppCheckBox { checked: root.val(opt.id) === "true"; enabled: root.enabledFor(opt.id); tip: opt.tip; onToggled: root.setVal(opt.id, checked ? "true" : "false") } }
     Component { id: numc
         AppStepper { implicitWidth: 110; text: root.val(opt.id); enabled: root.enabledFor(opt.id)
             minValue: opt.id === "timeout" ? -1 : 0; maxValue: 3600; step: 1; bigStep: 5

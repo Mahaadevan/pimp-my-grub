@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 
 // A menu listing the ready-made versions of one kind of item (menu, label, progress bar ...).
-Menu {
+AppMenu {
     id: m
     property var backend
     property string kind: ""

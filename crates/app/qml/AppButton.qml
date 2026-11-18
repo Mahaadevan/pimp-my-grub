@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 
 // highlighted -> solid accent (primary) · flat -> ghost · default -> bordered surface
+// Every button is a plain rectangle: square corners, no radius anywhere.
 Button {
     id: c
     readonly property var t: Tokens {}
@@ -18,7 +19,6 @@ Button {
         color: !c.enabled ? t.muted2 : c.highlighted ? t.accentFg : t.text
     }
     background: Rectangle {
-        radius: 8
         opacity: c.enabled ? 1 : 0.45
         color: c.highlighted ? (c.down ? t.accentDown : c.hovered ? t.accentHover : t.accent)
              : c.flat ? (c.down ? t.surface3 : c.hovered ? t.surface2 : "transparent")

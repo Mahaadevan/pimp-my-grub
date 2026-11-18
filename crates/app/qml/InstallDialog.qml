@@ -11,7 +11,7 @@ Dialog {
     property string gfx: "auto"
     modal: true; closePolicy: Dialog.NoAutoClose
     padding: 18
-    background: Rectangle { radius: 14; color: t.surface; border.width: 1; border.color: t.border2 }
+    background: Rectangle { color: t.surface; border.width: 1; border.color: t.border2 }
     Overlay.modal: Rectangle { color: "#b0000000" }
     header: Label { text: dlg.title; font.bold: true; font.pixelSize: 16; leftPadding: 18; topPadding: 16; bottomPadding: 4 }
     anchors.centerIn: Overlay.overlay
@@ -49,7 +49,7 @@ Dialog {
         }
     }
 
-    contentItem: ScrollView {
+    contentItem: ScrollView { ScrollBar.vertical: AppScrollBar { } ScrollBar.horizontal: AppScrollBar { }
         id: sv; clip: true; contentWidth: availableWidth
         ColumnLayout {
             width: sv.availableWidth; spacing: 10
@@ -58,7 +58,7 @@ Dialog {
 
             // ---- review
             ColumnLayout { visible: s.phase === "review"; Layout.fillWidth: true; spacing: 10
-                Frame { Layout.fillWidth: true; background: Rectangle { color: "#10241a"; border.color: "#1f5a3a"; radius: 10 }
+                Frame { Layout.fillWidth: true; background: Rectangle { color: "#10241a"; border.color: "#1f5a3a" }
                     Label { width: parent.width; wrapMode: Text.Wrap; color: "#d6f5e3"; font.pixelSize: 12
                         text: qsTr("<b>Safe by design.</b> Your current <code>/etc/default/grub</code> and <code>grub.cfg</code> are backed up in <code>/var/lib/pimp-my-grub</code> first. The new boot menu is generated and validated before it replaces the old one, and any error restores everything automatically. If a theme ever fails to load, GRUB shows its plain text menu; your OS entries are never removed.") } }
                 GridLayout { columns: 2; Layout.fillWidth: true; visible: !dlg.settingsMode
@@ -74,19 +74,19 @@ Dialog {
                 ColumnLayout { visible: s.plan && !s.plan.fatal; Layout.fillWidth: true; spacing: 8
                     Label { text: dlg.settingsMode ? qsTr("These settings will be written to the system") : qsTr("These system files will be changed"); font.bold: true }
                     Repeater { model: s.plan ? s.plan.changes : []
-                        delegate: Frame { Layout.fillWidth: true; background: Rectangle { radius: 10; color: t.surface2; border.color: t.border }
+                        delegate: Frame { Layout.fillWidth: true; background: Rectangle { color: t.surface2; border.color: t.border }
                             RowLayout { width: parent.width; spacing: 10
                                 Label { text: modelData.action.toUpperCase(); font.bold: true; font.pixelSize: 10; font.letterSpacing: 0.6; color: t.accent; Layout.preferredWidth: 64 }
                                 ColumnLayout { Layout.fillWidth: true; spacing: 2
                                     Label { text: modelData.path; font.family: "monospace"; Layout.fillWidth: true; wrapMode: Text.WrapAnywhere }
                                     Label { text: modelData.note; opacity: 0.65; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.Wrap } } } } }
-                    Repeater { model: s.plan ? s.plan.warns : []; delegate: Frame { Layout.fillWidth: true; background: Rectangle { radius: 8; color: "#2a2210"; border.color: "#5c4716" }
+                    Repeater { model: s.plan ? s.plan.warns : []; delegate: Frame { Layout.fillWidth: true; background: Rectangle { color: "#2a2210"; border.color: "#5c4716" }
                         Label { width: parent.width; text: "⚠ " + modelData; color: t.warn; wrapMode: Text.Wrap } } }
                     Label { text: qsTr("Exact edit to /etc/default/grub"); font.bold: true }
-                    ScrollView { Layout.fillWidth: true; Layout.preferredHeight: 150; clip: true
+                    ScrollView { ScrollBar.vertical: AppScrollBar { } ScrollBar.horizontal: AppScrollBar { } Layout.fillWidth: true; Layout.preferredHeight: 150; clip: true
                         TextArea { readOnly: true; font.family: t.mono; font.pixelSize: 12; color: t.text; text: s.plan ? s.plan.diff : ""; wrapMode: TextArea.NoWrap
-                            background: Rectangle { color: t.bg; radius: 8; border.width: 1; border.color: t.border } } }
-                    Frame { Layout.fillWidth: true
+                            background: Rectangle { color: t.bg; border.width: 1; border.color: t.border } } }
+                    Frame { Layout.fillWidth: true; background: Rectangle { color: t.surface2; border.color: t.border }
                         Label { width: parent.width; wrapMode: Text.Wrap; font.pixelSize: 12
                             text: qsTr("<b>If something looks wrong later</b><br>• Open <i>Manage</i> → <i>Undo last change</i>.<br>• Original files stay in <code>/var/lib/pimp-my-grub/original/</code>. Copy <code>default-grub</code> back to <code>/etc/default/grub</code>, then run <code>sudo update-grub</code> (Debian/Ubuntu) or <code>sudo grub2-mkconfig -o /boot/grub2/grub.cfg</code> (Fedora/openSUSE).<br>• From a live USB: mount your system, restore <code>/etc/default/grub</code> and regenerate the config.") } }
                 }
@@ -97,9 +97,9 @@ Dialog {
             ColumnLayout { visible: s.phase === "applying"; Layout.fillWidth: true
                 Label { text: qsTr("Working… approve the password prompt if it appears. Do not power off."); opacity: 0.8; wrapMode: Text.Wrap; Layout.fillWidth: true }
                 ProgressBar { indeterminate: true; Layout.fillWidth: true
-                    background: Rectangle { implicitHeight: 6; radius: 3; color: t.border }
+                    background: Rectangle { implicitHeight: 6; color: t.border }
                     contentItem: Item { implicitHeight: 6; clip: true
-                        Rectangle { id: bar; width: parent.width * 0.3; height: 6; radius: 3; color: t.accent
+                        Rectangle { id: bar; width: parent.width * 0.3; height: 6; color: t.accent
                             SequentialAnimation on x { loops: Animation.Infinite; running: true
                                 NumberAnimation { from: 0; to: bar.parent.width * 0.7; duration: 800; easing.type: Easing.InOutQuad }
                                 NumberAnimation { from: bar.parent.width * 0.7; to: 0; duration: 800; easing.type: Easing.InOutQuad } } } } }
@@ -122,7 +122,7 @@ Dialog {
 
             // ---- manage
             ColumnLayout { visible: s.phase === "manage"; Layout.fillWidth: true; spacing: 8
-                Frame { Layout.fillWidth: true; visible: !!s.sys
+                Frame { Layout.fillWidth: true; visible: !!s.sys; background: Rectangle { color: t.surface2; border.color: t.border }
                     Label { width: parent.width; wrapMode: Text.Wrap
                         text: s.sys ? qsTr("GRUB folder: %1 · %2 · %3<br>Current theme: %4<br>Pimp my GRUB theme: <b>%5</b>").arg(s.sys.info.grub_dir || "").arg((s.sys.info.firmware || "").toUpperCase()).arg(s.sys.info.grub_version || "").arg(s.sys.info.current_theme || qsTr("none")).arg(s.sys.info.managed_name || qsTr("none installed")) : "" } }
                 Repeater { model: s.sys ? s.sys.warns : []; delegate: Label { text: "⚠ " + modelData; color: t.warn; wrapMode: Text.Wrap; Layout.fillWidth: true } }

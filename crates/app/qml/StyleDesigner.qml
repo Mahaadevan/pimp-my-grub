@@ -31,10 +31,9 @@ AppDialog {
 
     ColumnLayout {
         width: dlg.availableWidth; spacing: 10
-        TabBar {
-            id: tabs; Layout.fillWidth: true; background: null
-            TabButton { text: qsTr("Design"); width: implicitWidth }
-            TabButton { text: qsTr("From a picture"); width: implicitWidth }
+        AppTabBar { id: tabs; Layout.alignment: Qt.AlignLeft
+            AppTabButton { text: qsTr("Design"); width: implicitWidth }
+            AppTabButton { text: qsTr("From a picture"); width: implicitWidth }
         }
         StackLayout {
             currentIndex: tabs.currentIndex; Layout.fillWidth: true
@@ -43,7 +42,7 @@ AppDialog {
                 spacing: 10
                 // live look (an approximation: GRUB stretches the real pieces)
                 Rectangle {
-                    Layout.fillWidth: true; Layout.preferredHeight: 84; radius: 10; color: t.bg; border.width: 1; border.color: t.border
+                    Layout.fillWidth: true; Layout.preferredHeight: 84; color: t.bg; border.width: 1; border.color: t.border
                     Rectangle {
                         anchors.centerIn: parent; width: 280; height: 44
                         radius: Math.min(parseInt(rad.text) || 0, 22)
@@ -61,9 +60,7 @@ AppDialog {
                     Label { text: qsTr("Fill"); color: t.muted }
                     AppField { id: fillHex; Layout.fillWidth: true; text: "#ff6b6b"; selectByMouse: true }
                     AppButton { text: qsTr("Pick…"); onClicked: { colorPick.target = fillHex; colorPick.current = fillHex.text; colorPick.open() } }
-                    Label { text: qsTr("Gradient"); color: t.muted }
-                    AppSwitch { id: grad; tip: qsTr("Blend the fill into a second colour from top to bottom.") }
-                    Item { }
+                    AppCheckBox { id: grad; Layout.columnSpan: 3; text: qsTr("Gradient"); tip: qsTr("Blend the fill into a second colour from top to bottom.") }
                     Label { text: qsTr("Second colour"); color: t.muted; visible: grad.checked }
                     AppField { id: fill2Hex; Layout.fillWidth: true; text: "#c0392b"; selectByMouse: true; visible: grad.checked }
                     AppButton { text: qsTr("Pick…"); visible: grad.checked; onClicked: { colorPick.target = fill2Hex; colorPick.current = fill2Hex.text; colorPick.open() } }

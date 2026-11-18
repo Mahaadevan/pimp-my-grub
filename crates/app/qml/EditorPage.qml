@@ -80,6 +80,9 @@ RowLayout {
                         WheelHandler { onWheel: function(ev) { timeoutBox.apply((parseInt(timeoutBox.text) || 0) + (ev.angleDelta.y > 0 ? 1 : -1)) } }
                     }
                 }
+                AppButton { text: qsTr("Load default theme")
+                    tip: qsTr("Start over from GRUB's own plain menu: black background, default font, no styling, like a freshly installed system. Undo brings your theme back.")
+                    onClicked: page.backend.call("loadDefault", "", "") }
                 AppButton { text: "▶  " + qsTr("Live preview"); highlighted: false
                     tip: qsTr("Show the theme full screen and try it like the real GRUB: arrow keys move, Enter picks, the countdown runs. Uses this computer's boot entries when they can be read. (F5)")
                     onClicked: page.livePreview() }

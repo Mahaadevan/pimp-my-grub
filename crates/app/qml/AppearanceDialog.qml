@@ -33,7 +33,7 @@ AppDialog {
                 model: dlg.presets
                 delegate: Rectangle {
                     required property string modelData
-                    width: 34; height: 34; radius: 17; color: modelData
+                    width: 34; height: 34; color: modelData
                     border.width: dlg.accent.toLowerCase() === modelData ? 3 : 1
                     border.color: dlg.accent.toLowerCase() === modelData ? t.text : t.border2
                     scale: sw.containsMouse ? 1.08 : 1.0
@@ -44,7 +44,7 @@ AppDialog {
         }
         RowLayout {
             Layout.fillWidth: true; spacing: 8
-            Rectangle { width: 32; height: 32; radius: 8; color: dlg.accent; border.width: 1; border.color: t.border2 }
+            Rectangle { width: 32; height: 32; color: dlg.accent; border.width: 1; border.color: t.border2 }
             AppField {
                 id: hex; Layout.fillWidth: true; text: dlg.accent; placeholderText: "#rrggbb"; selectByMouse: true
                 color: Theme.isHex(text) ? t.text : t.danger

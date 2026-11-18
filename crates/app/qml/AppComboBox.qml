@@ -28,7 +28,7 @@ ComboBox {
         }
     }
     background: Rectangle {
-        radius: 8; color: t.bg; opacity: c.enabled ? 1 : 0.5
+        color: t.bg; opacity: c.enabled ? 1 : 0.5
         border.width: 1; border.color: c.activeFocus || c.popup.visible ? t.accent : c.hovered ? t.border2 : t.border
     }
     delegate: ItemDelegate {
@@ -43,7 +43,7 @@ ComboBox {
             font: c.font; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter
             color: item.modelData === "" ? t.muted2 : (c.currentIndex === item.index ? t.accent : t.text)
         }
-        background: Rectangle { radius: 6; color: item.highlighted ? t.surface3 : "transparent" }
+        background: Rectangle { color: item.highlighted ? t.surface3 : "transparent" }
     }
     popup: Popup {
         // wider than the field when needed (long names), and kept inside the window by sliding it left
@@ -55,8 +55,8 @@ ComboBox {
             clip: true; implicitHeight: contentHeight
             model: c.popup.visible ? c.delegateModel : null
             currentIndex: c.highlightedIndex
-            ScrollBar.vertical: ScrollBar {}
+            ScrollBar.vertical: AppScrollBar { }
         }
-        background: Rectangle { radius: 10; color: t.surface2; border.width: 1; border.color: t.border2 }
+        background: Rectangle { color: t.surface2; border.width: 1; border.color: t.border2 }
     }
 }

@@ -63,13 +63,18 @@ pub fn parse_entries(cfg: &str) -> Vec<HostEntry> {
 
 pub struct Host { pub defaults: IndexMap<String, String>, pub entries: Vec<HostEntry>, pub defaults_file: String, pub readable: bool, pub cfg_file: String, pub saved_entry: String, pub os_prober: bool }
 
-pub fn read_host() -> Host {
-    let dp = defaults_path();
+pub fn read_host() -> Host { read_host_with(None, None) }
+
+/// The same, from files the caller names. The app uses this for the copies the privileged helper makes when the user's
+/// own account is not allowed to read `/etc/default/grub` or `grub.cfg` (root-owned on most systems).
+pub fn read_host_with(defaults: Option<&Path>, cfg: Option<&Path>) -> Host {
+    let dp = defaults.map(Path::to_path_buf).unwrap_or_else(defaults_path);
     let text = std::fs::read_to_string(&dp);
     let readable = text.is_ok();
     let defaults = parse_defaults(&text.unwrap_or_default());
     let (mut entries, mut cfg_file) = (vec![], String::new());
-    for c in cfg_candidates() { if let Ok(t) = std::fs::read_to_string(&c) { entries = parse_entries(&t); cfg_file = c.to_string_lossy().into(); if !entries.is_empty() { break; } } }
+    let candidates = match cfg { Some(c) => vec![c.to_path_buf()], None => cfg_candidates() };
+    for c in candidates { if let Ok(t) = std::fs::read_to_string(&c) { entries = parse_entries(&t); cfg_file = c.to_string_lossy().into(); if !entries.is_empty() { break; } } }
     let mut saved = String::new();
     for g in ["/boot/grub/grubenv", "/boot/grub2/grubenv"] { if let Ok(t) = std::fs::read_to_string(g) { if let Some(v) = t.lines().find_map(|l| l.strip_prefix("saved_entry=")) { saved = v.to_string(); break; } } }
     let os_prober = ["/usr/bin/os-prober", "/usr/sbin/os-prober", "/bin/os-prober"].iter().any(|p| Path::new(p).exists());

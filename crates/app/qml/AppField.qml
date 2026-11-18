@@ -10,7 +10,7 @@ TextField {
     selectionColor: t.accent; selectedTextColor: t.accentFg
     verticalAlignment: TextInput.AlignVCenter
     background: Rectangle {
-        radius: 8; color: t.bg
+        color: t.bg
         border.width: 1; border.color: c.activeFocus ? t.accent : c.hovered ? t.border2 : t.border
     }
 }

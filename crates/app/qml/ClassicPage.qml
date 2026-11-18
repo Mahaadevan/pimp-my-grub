@@ -30,10 +30,10 @@ Item {
             Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: t.border }
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 8
-                AppButton { text: "💾  " + qsTr("Save…"); highlighted: true; enabled: settings.pending > 0
+                AppButton { text: qsTr("Save…"); highlighted: true; enabled: settings.pending > 0
                     tip: qsTr("Review and save the changes made on the General settings tab. You see the exact difference first.")
                     onClicked: settings.review(settings.edits) }
-                AppButton { text: "⟳  " + qsTr("Reload"); tip: qsTr("Read the GRUB settings from this computer again"); onClicked: root.reload() }
+                AppButton { text: qsTr("Reload"); tip: qsTr("Read the GRUB settings from this computer again"); onClicked: root.reload() }
                 Rectangle { width: 1; height: 22; color: t.border }
                 AppButton { text: qsTr("Install theme…"); tip: qsTr("Put the theme from the Appearance tab on this computer's GRUB (with a backup, and a review first)."); onClicked: root.installTheme() }
                 AppButton { text: "▶  " + qsTr("Live preview"); tip: qsTr("Full-screen simulation of the menu with this computer's entries"); onClicked: root.livePreview() }
@@ -41,11 +41,10 @@ Item {
                 Label { text: settings.pending > 0 ? qsTr("%n unsaved change(s)", "", settings.pending) : ""; color: t.accent; font.pixelSize: 12 }
             }
         }
-        TabBar {
-            id: tabs; Layout.fillWidth: true; background: Rectangle { color: t.bg }
-            TabButton { text: qsTr("List configuration"); width: implicitWidth + 24 }
-            TabButton { text: qsTr("General settings"); width: implicitWidth + 24 }
-            TabButton { text: qsTr("Appearance settings"); width: implicitWidth + 24 }
+        AppTabBar { id: tabs; Layout.leftMargin: 14; Layout.topMargin: 10; Layout.bottomMargin: 8
+            AppTabButton { text: qsTr("List configuration"); width: implicitWidth + 24 }
+            AppTabButton { text: qsTr("General settings"); width: implicitWidth + 24 }
+            AppTabButton { text: qsTr("Appearance settings"); width: implicitWidth + 24 }
         }
         StackLayout {
             Layout.fillWidth: true; Layout.fillHeight: true; currentIndex: tabs.currentIndex
@@ -58,15 +57,15 @@ Item {
                               ? qsTr("The entries below are what GRUB lists on this computer (from %1). Their order and names come from your distribution's scripts in /etc/grub.d, so they are shown here but not edited. You can choose which one boots by default.").arg(root.cfgFile)
                               : qsTr("The boot entries could not be read (grub.cfg is missing or not readable by your user). The settings still work.") }
                     Rectangle {
-                        Layout.fillWidth: true; Layout.fillHeight: true; radius: 12; color: t.surface; border.width: 1; border.color: t.border; clip: true
+                        Layout.fillWidth: true; Layout.fillHeight: true; color: t.surface; border.width: 1; border.color: t.border; clip: true
                         ListView {
                             id: lv; anchors.fill: parent; anchors.margins: 4; model: root.entries; clip: true; boundsBehavior: Flickable.StopAtBounds
-                            ScrollBar.vertical: ScrollBar { }
+                            ScrollBar.vertical: AppScrollBar { }
                             delegate: ItemDelegate {
                                 required property var modelData
                                 width: lv.width - 8; height: 42; hoverEnabled: true
                                 readonly property bool isDefault: settings.val("remember_last") !== "true" && settings.val("default_entry") === modelData.id
-                                background: Rectangle { radius: 8; color: parent.hovered ? t.surface2 : "transparent" }
+                                background: Rectangle { color: parent.hovered ? t.surface2 : "transparent" }
                                 contentItem: RowLayout {
                                     spacing: 10
                                     Item { Layout.preferredWidth: 14 + modelData.depth * 22 }

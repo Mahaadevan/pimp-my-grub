@@ -5,6 +5,7 @@ use cxx_qt_lib::QString;
 use pimp_my_grub_core::editor::Editor;
 use pimp_my_grub_core::installer::{self, Report};
 use pimp_my_grub_core::{fontconv, grubcfg};
+use pimp_my_grub_core::theme::q;
 use pimp_my_grub_core::store::{self, RepoRef, StoreTheme};
 use serde_json::json;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -336,6 +337,34 @@ fn sys_fonts_json() -> String {
     serde_json::to_string(g.as_ref().unwrap()).unwrap_or_else(|_| "[]".into())
 }
 
+/// `/etc/default/grub` and `/boot/grub/grub.cfg` are readable only by root on most systems, so the GRUB settings page would
+/// show defaults instead of this computer's real values. This asks the privileged helper (the same polkit action that
+/// checks its password once) to copy the two files into a private temporary folder, then parses them with the normal code.
+/// Read-only: if the person cancels the password prompt, nothing happens and the page keeps showing what it had.
+fn read_host_elevated() -> String {
+    let dir = std::env::temp_dir().join(format!("pimp-my-grub-read-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    if std::fs::create_dir_all(&dir).is_err() { return "ERR:Could not create a temporary folder.".into(); }
+    let out = match installer::run_helper("snapshot", &[dir.to_string_lossy().into_owned()], &mut |_| {}) {
+        Ok((0, _)) if dir.join("default-grub").is_file() && dir.join("grub.cfg").is_file() => {
+            let mut host = grubcfg::read_host_with(Some(&dir.join("default-grub")), Some(&dir.join("grub.cfg")));
+            host.readable = true;
+            // the copies are temporary: show the real paths again
+            let source = std::fs::read_to_string(dir.join("source")).unwrap_or_default();
+            let real = |key: &str| source.lines().find_map(|l| l.strip_prefix(key)).map(|v| v.trim_start_matches('=').to_string());
+            if let Some(p) = real("DEFAULTS") { host.defaults_file = p; }
+            host.cfg_file = real("CFG").unwrap_or(host.cfg_file);
+            grubcfg::options_json(&host).to_string()
+        }
+        Ok((126, _)) => "ERR:Authentication was cancelled, so the GRUB files stay unread.".into(),
+        Ok((127, _)) => "ERR:Could not start pkexec. Install polkit to read the GRUB files as administrator.".into(),
+        Ok((_, rep)) => format!("ERR:{}", rep.fatal.unwrap_or_else(|| "The helper could not read the GRUB files.".into())),
+        Err(e) => format!("ERR:{e}"),
+    };
+    let _ = std::fs::remove_dir_all(&dir);
+    out
+}
+
 // ------------------------------------------------------------------ the QObject
 impl qobject::Backend {
     pub fn call(self: Pin<&mut Self>, method: &QString, a: &QString, b: &QString) -> QString {
@@ -418,6 +447,18 @@ impl qobject::Backend {
                 json!({"entries": top, "timeout": timeout.max(0), "default": def, "style": grubcfg::current("timeout_style", &h.defaults), "found": !h.entries.is_empty(), "file": h.cfg_file}).to_string()
             }
             "hostInfo" => { mutated = false; grubcfg::options_json(&grubcfg::read_host()).to_string() }
+            // the same values, read with administrator rights when this computer keeps the GRUB files root-only
+            "hostInfoElevated" => { mutated = false; read_host_elevated() }
+            // GRUB's own look with no theme at all: a starting point like the original GRUB Customizer's reset
+            "loadDefault" => {
+                let mut e = ed();
+                e.reset();
+                e.set_global("desktop-color", &q("#000000"));
+                e.set_global("title-text", &q("GNU GRUB  version 2.12"));
+                e.add("boot_menu", &[]);
+                e.name = "grub-default".into();
+                String::new()
+            }
             "cfgPlan" => { mutated = false; cfg_plan(&t, a); String::new() }
             "cfgApply" => {
                 mutated = false;

@@ -9,7 +9,7 @@ Item {
     property string tip: ""
     signal clicked()
     implicitWidth: 34; implicitHeight: 34
-    Rectangle { anchors.fill: parent; anchors.margins: 1; radius: 9; color: ma.pressed ? t.surface3 : ma.containsMouse ? t.surface2 : "transparent" }
+    Rectangle { anchors.fill: parent; anchors.margins: 1; color: ma.pressed ? t.surface3 : ma.containsMouse ? t.surface2 : "transparent" }
     Image {
         visible: h.kind === "github"; anchors.centerIn: parent; width: 18; height: 18
         sourceSize.width: 36; sourceSize.height: 36; smooth: true; mipmap: true

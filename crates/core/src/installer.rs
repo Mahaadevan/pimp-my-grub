@@ -162,7 +162,12 @@ pub fn convert_font(ttf: &[u8], size: u32) -> Result<Vec<u8>, String> {
 /// Run the helper. `status` and `plan` are read-only and run as the user; the rest go through pkexec.
 /// Returns the process exit code and the parsed report.
 pub fn run_helper(mode: &str, args: &[String], on_line: &mut dyn FnMut(&str)) -> Result<(i32, Report), String> {
-    let privileged = match mode { "status" | "plan" | "cplan" => false, "apply" | "capply" | "rollback" | "uninstall" => true, _ => return Err("unknown mode".into()) };
+    let privileged = match mode {
+        "status" | "plan" | "cplan" => false,
+        // "snapshot" only copies the two root-owned GRUB files into a private folder so they can be read (no change is made)
+        "apply" | "capply" | "rollback" | "uninstall" | "snapshot" => true,
+        _ => return Err("unknown mode".into()),
+    };
     if matches!(mode, "plan" | "apply" | "cplan" | "capply") {
         let stage = args.first().ok_or("missing staged folder")?;
         let canon = std::fs::canonicalize(stage).map_err(|e| e.to_string())?;

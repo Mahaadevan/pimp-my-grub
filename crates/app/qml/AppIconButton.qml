@@ -16,7 +16,6 @@ Button {
         color: !c.enabled ? t.muted2 : c.hovered ? t.text : t.muted
     }
     background: Rectangle {
-        radius: 6
         color: c.down ? t.surface3 : c.hovered ? t.surface2 : "transparent"
         opacity: c.enabled ? 1 : 0.5
     }

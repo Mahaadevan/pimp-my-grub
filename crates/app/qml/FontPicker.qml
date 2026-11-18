@@ -33,17 +33,17 @@ AppDialog {
             AppStepper { id: sizeBox; implicitWidth: 96; text: "24"; minValue: 8; maxValue: 96; step: 1; bigStep: 4; validator: IntValidator { bottom: 8; top: 96 } }
         }
         Rectangle {
-            Layout.fillWidth: true; Layout.fillHeight: true; radius: 10; color: t.bg; border.width: 1; border.color: t.border; clip: true
+            Layout.fillWidth: true; Layout.fillHeight: true; color: t.bg; border.width: 1; border.color: t.border; clip: true
             ListView {
                 id: lv; anchors.fill: parent; anchors.margins: 4; model: dlg.shown; clip: true; boundsBehavior: Flickable.StopAtBounds
-                ScrollBar.vertical: ScrollBar { }
+                ScrollBar.vertical: AppScrollBar { }
                 delegate: ItemDelegate {
                     required property var modelData
                     required property int index
                     width: lv.width - 10; height: 44; highlighted: dlg.pick === index
                     onClicked: dlg.pick = index
                     onDoubleClicked: { dlg.pick = index; addBtn.clicked() }
-                    background: Rectangle { radius: 8; color: highlighted ? t.surface3 : (hovered ? t.surface2 : "transparent") }
+                    background: Rectangle { color: highlighted ? t.surface3 : (hovered ? t.surface2 : "transparent") }
                     contentItem: RowLayout {
                         spacing: 10
                         Label { text: modelData.family + (modelData.style !== "Regular" ? " " + modelData.style : ""); Layout.preferredWidth: 220; elide: Text.ElideRight; color: t.muted; font.pixelSize: 12 }

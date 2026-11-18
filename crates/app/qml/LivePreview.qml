@@ -81,12 +81,12 @@ Window {
 
     Rectangle {
         visible: w.banner !== ""; anchors.centerIn: parent; width: Math.min(parent.width - 80, 640); height: msg.implicitHeight + 56
-        radius: 14; color: "#e60a0c10"; border.width: 1; border.color: "#44ffffff"
+        color: "#e60a0c10"; border.width: 1; border.color: "#44ffffff"
         Text { id: msg; anchors.centerIn: parent; width: parent.width - 48; text: w.banner; color: "white"; font.pixelSize: 20; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap }
     }
     Rectangle {
         visible: w.help; opacity: w.help ? 1 : 0; anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 18
-        width: Math.min(parent.width - 40, hint.implicitWidth + 36); height: hint.implicitHeight + 20; radius: 12; color: "#d90a0c10"; border.width: 1; border.color: "#33ffffff"
+        width: Math.min(parent.width - 40, hint.implicitWidth + 36); height: hint.implicitHeight + 20; color: "#d90a0c10"; border.width: 1; border.color: "#33ffffff"
         Behavior on opacity { NumberAnimation { duration: 250 } }
         Text { id: hint; anchors.centerIn: parent; color: "#d6d9df"; font.pixelSize: 13; horizontalAlignment: Text.AlignHCenter
             text: qsTr("LIVE PREVIEW · ↑ ↓ choose · Enter boots (simulated) · e / c as in GRUB · F1 help · Esc leaves") + "\n" + w.source }

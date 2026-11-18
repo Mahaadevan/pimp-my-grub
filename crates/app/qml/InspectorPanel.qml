@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "Help.js" as Help
 
-ScrollView {
+ScrollView { ScrollBar.vertical: AppScrollBar { } ScrollBar.horizontal: AppScrollBar { }
     id: root
     readonly property var t: Tokens {}
     property var backend
@@ -128,7 +128,7 @@ ScrollView {
         AppCheckBox { checked: f.value === "true"; onToggled: root.set(f.key, checked ? "true" : "false") } }
     Component { id: colorField
         RowLayout { spacing: 6
-            Rectangle { width: 32; height: 32; radius: 8; border.color: t.border2; color: /^#[0-9a-fA-F]{3,8}$/.test(f.value) ? f.value : "#ffffff"
+            Rectangle { width: 32; height: 32; border.color: t.border2; color: /^#[0-9a-fA-F]{3,8}$/.test(f.value) ? f.value : "#ffffff"
                 MouseArea { anchors.fill: parent; onClicked: { root.target = f.key; colorDlg.current = parent.color.toString(); colorDlg.open() } } }
             AppField { Layout.fillWidth: true; visible: f.kind === "color"; text: f.value; selectByMouse: true; onEditingFinished: root.set(f.key, text) }
         } }

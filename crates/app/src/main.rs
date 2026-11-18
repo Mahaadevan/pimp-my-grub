@@ -15,11 +15,15 @@ fn prefer_native_dialogs() {
     let mut dirs: Vec<std::path::PathBuf> = std::env::var("QT_PLUGIN_PATH").unwrap_or_default().split(':').filter(|d| !d.is_empty()).map(Into::into).collect();
     for d in ["/usr/lib/qt6/plugins", "/usr/lib64/qt6/plugins", "/usr/lib/x86_64-linux-gnu/qt6/plugins", "/usr/lib/aarch64-linux-gnu/qt6/plugins"] { dirs.push(d.into()); }
     let has = |lib: &str| dirs.iter().any(|d| d.join("platformthemes").join(lib).is_file());
-    let portal_up = Command::new("dbus-send")
+    let gtk_desktop = ["gnome", "xfce", "cinnamon", "mate", "budgie", "unity", "pantheon", "lxde", "lxqt", "ubuntu", "x-cinnamon"].iter().any(|d| desktop.contains(d));
+    // Probing the portal starts a process before the window exists, so only do it when the plugin that uses it is installed and
+    // there is a session bus to ask.
+    let bus = std::env::var_os("DBUS_SESSION_BUS_ADDRESS").is_some()
+        || std::env::var_os("XDG_RUNTIME_DIR").map(|d| std::path::Path::new(&d).join("bus").exists()).unwrap_or(false);
+    let portal_up = bus && has("libqxdgdesktopportal.so") && Command::new("dbus-send")
         .args(["--session", "--dest=org.freedesktop.DBus", "--print-reply", "/org/freedesktop/DBus", "org.freedesktop.DBus.NameHasOwner", "string:org.freedesktop.portal.Desktop"])
         .output().map(|o| String::from_utf8_lossy(&o.stdout).contains("boolean true")).unwrap_or(false);
-    let gtk_desktop = ["gnome", "xfce", "cinnamon", "mate", "budgie", "unity", "pantheon", "lxde", "lxqt", "ubuntu", "x-cinnamon"].iter().any(|d| desktop.contains(d));
-    if portal_up && has("libqxdgdesktopportal.so") { std::env::set_var("QT_QPA_PLATFORMTHEME", "xdgdesktopportal"); }
+    if portal_up { std::env::set_var("QT_QPA_PLATFORMTHEME", "xdgdesktopportal"); }
     else if gtk_desktop && has("libqgtk3.so") { std::env::set_var("QT_QPA_PLATFORMTHEME", "gtk3"); }
 }
 
@@ -41,10 +45,12 @@ fn main() {
         }
         eprintln!("pimp-my-grub: internal error: {info}");
     }));
-    // The interface is light and the preview is drawn by the CPU anyway, so Qt Quick's software renderer is used by default. It needs
-    // no GPU driver (VMs, remote sessions, odd drivers, Wayland without EGL), which was the one thing that could abort the whole
-    // program at start. Set PIMPMYGRUB_GPU=1 (or QT_QUICK_BACKEND yourself) to use the GPU instead.
-    if std::env::var_os("QT_QUICK_BACKEND").is_none() && std::env::var("PIMPMYGRUB_GPU").map(|v| v != "1").unwrap_or(true) {
+    // Draw through the platform's own graphics stack, which is what Qt Quick does by default: EGL/OpenGL on a Wayland session,
+    // GLX/EGL on X11, Vulkan where Qt prefers it. That is what makes the window tear-free, correctly scaled on HiDPI screens and
+    // smooth on both display servers; the editor preview is still rendered by the CPU and reaches the screen as one texture.
+    // PIMPMYGRUB_SOFTWARE=1 (or QT_QUICK_BACKEND=software) forces the old CPU-only path for machines whose driver cannot create a
+    // context; the launcher also switches to it automatically when the first start fails (see helper/pimp-my-grub-launcher.sh).
+    if std::env::var_os("QT_QUICK_BACKEND").is_none() && std::env::var("PIMPMYGRUB_SOFTWARE").map(|v| v == "1").unwrap_or(false) {
         std::env::set_var("QT_QUICK_BACKEND", "software");
     }
     prefer_native_dialogs();
