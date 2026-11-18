@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.6.4
+- **Wayland and X11 use the GPU again.** 0.6.2/0.6.3 forced Qt Quick's software renderer to survive machines without a working
+  graphics driver. That is not how the app should draw on a normal desktop: on Wayland it meant a software-drawn window scaled by
+  the compositor, no VSync and blurry output on HiDPI screens. Qt's own graphics stack (EGL/OpenGL, Vulkan where Qt picks it) is
+  used again on both display servers; `PIMPMYGRUB_SOFTWARE=1` (or `QT_QUICK_BACKEND=software`) still forces the CPU path, and the
+  launcher's automatic safe mode (software drawing over X11) is unchanged.
+- **A square interface.** Every rounded corner is gone, not just on buttons: dialogs, menus, fields, combo boxes, sliders,
+  scrollbars, tabs, tab bar, stepper, zoom bar, preview frames, colour swatches, badges, the loading spinner and the status dots are
+  all plain rectangles now (43 `radius` properties removed across the QML). The `RoundedMask` Canvas hack that painted fake rounded
+  corners over store thumbnails went with them, so nothing needs a Canvas repaint to look right. The Style designer's own
+  "Corner radius" field stays: that sets the corner radius of the GRUB theme you are building, not of the app.
+- **Checkboxes instead of toggle switches.** The GRUB settings and the Style designer's gradient option use the checkbox component;
+  `AppSwitch.qml` and the switch code in it are removed (the `/etc/default/grub` values it edits are unchanged).
+- **Leftovers removed.** `antialiasing: true` was only ever there to smooth rounded corners; it is gone from the 80 places that
+  still asked for it on plain rectangles. The header is just the name (*Pimp My GRUB*, no mark beside it), and the theme-name field
+  shrinks instead of pushing the right-hand icons out of the window on a narrow screen. In the Store the card grid reserves room for
+  the scroll bar, so the last column is no longer cut off at the window edge.
+- **Clearer wording.** The Store buttons say *Edit Theme* and *Install Theme*, and the classic layout's *Save…* / *Reload* lost
+  their emoji.
+- **Load the default theme.** A new button in the editor toolbar starts over from GRUB's own plain look (black background, default
+  font, a plain menu) instead of an empty canvas.
+- **Reading GRUB settings needs root on most systems.** When `/etc/default/grub` and `grub.cfg` cannot be read as your user, the GRUB
+  settings page offers *Read as administrator…*: the helper (the same polkit action, so one password prompt) copies the two files into
+  a private temporary folder and they are parsed from there. It changes nothing on the system, and the whole UI never runs as root.
+- The native-dialog probe no longer forks `dbus-send` when the portal plugin is not installed or there is no session bus, so it can
+  never delay the window at start.
+
+## 0.6.3
+- **Look:** every box and button is now a smooth rounded rectangle. The software renderer (the default since 0.6.2) only smooths rounded
+  corners and borders when asked, so every rectangle now asks for it. The controls that still had Qt's square grey default look were
+  restyled to match: tabs (Classic layout, Style designer), right-click / preset / Open menus (rounded panel, clear disabled state,
+  slim separators), scrollbars (slim rounded) and two frames in the install dialog.
+
 ## 0.6.2
 - **Fix (crash on Wayland: the app aborted at start, reproduced with the user's core dump):** the bundle included Qt's Wayland platform
   plugin but not its *graphics integration* plugin (`wayland-graphics-integration-client`). On a Wayland session Qt then logged

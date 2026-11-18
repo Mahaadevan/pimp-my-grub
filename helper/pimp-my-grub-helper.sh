@@ -6,6 +6,7 @@
 #   apply    STAGE NAME GFX        install theme (needs root; fully reversible)
 #   rollback                       undo the last apply
 #   uninstall                      remove every Pimp my GRUB change
+#   snapshot DIR                   read-only: copy /etc/default/grub and grub.cfg where the app (as your user) can read them
 #
 # Safety model
 #   * Never edits grub.cfg by hand: it is regenerated with grub-mkconfig into a
@@ -519,13 +520,34 @@ cmd_uninstall() {
   echo OK
 }
 
+# Read-only: hand the two root-owned files to the app so it can show them. The GRUB files are world-readable on some
+# systems and not on others; this lets the app work either way without running the whole UI as root.
+cmd_snapshot() {
+  require_root; detect
+  OUT=${1:-}
+  [ -n "$OUT" ] || fatal "usage: pimp-my-grub-helper snapshot DIR"
+  [ -d "$OUT" ] || fatal "The folder to copy into is missing."
+  cp -- "$DEFAULTS" "$OUT/default-grub"
+  cp -- "$GRUB_CFG" "$OUT/grub.cfg"
+  [ -f "$GRUB_DIR/grubenv" ] && cp -- "$GRUB_DIR/grubenv" "$OUT/grubenv"
+  printf 'DEFAULTS=%s\nCFG=%s\n' "$DEFAULTS" "$GRUB_CFG" > "$OUT/source"
+  chmod 0644 "$OUT/default-grub" "$OUT/grub.cfg" "$OUT/source"
+  [ ! -f "$OUT/grubenv" ] || chmod 0644 "$OUT/grubenv"
+  UID_ASKED=${PKEXEC_UID:-}
+  if [ -n "$UID_ASKED" ]; then chown -R "$UID_ASKED" "$OUT" 2>/dev/null || true; fi
+  info grub_dir "$GRUB_DIR"
+  info defaults "$DEFAULTS"
+  echo OK
+}
+
 case $MODE in
   status)    cmd_status ;;
+  snapshot)  cmd_snapshot "$@" ;;
   plan)      cmd_plan "$@" ;;
   apply)     cmd_apply "$@" ;;
   cplan)     cmd_cplan "$@" ;;
   capply)    cmd_capply "$@" ;;
   rollback)  cmd_rollback ;;
   uninstall) cmd_uninstall ;;
-  *) echo "usage: pimp-my-grub-helper status|plan|apply|cplan|capply|rollback|uninstall" >&2; exit 64 ;;
+  *) echo "usage: pimp-my-grub-helper status|snapshot|plan|apply|cplan|capply|rollback|uninstall" >&2; exit 64 ;;
 esac

@@ -8,9 +8,9 @@
 #    "undefined symbol: _ZNK11QQmlProperty..."). The bundled C++ runtime (lib/cxx) is used only if the system's is older.
 #  * a system install (.rpm, Arch): the binary sits in ../libexec and uses the distribution's Qt.
 #
-# Safe mode (software rendering, X11 instead of Wayland) is switched on automatically when the first start crashes within a few
-# seconds and the second, safe start works. Force it with PIMPMYGRUB_SAFE=1; undo with PIMPMYGRUB_SAFE=0 or by deleting
-# ~/.cache/pimp-my-grub/safe-mode.
+# Normal mode uses Qt's own graphics stack (EGL on Wayland, GLX/EGL on X11). Safe mode - software drawing over X11 - is switched on
+# automatically when the first start crashes within a few seconds and the second, safe start works. Force it with PIMPMYGRUB_SAFE=1;
+# undo with PIMPMYGRUB_SAFE=0 or by deleting ~/.cache/pimp-my-grub/safe-mode.
 D=$(dirname "$(readlink -f "$0")")
 ROOT=$(cd "$D/.." && pwd)
 BIN="$D/pimp-my-grub-bin"
@@ -47,7 +47,7 @@ if [ -e "$ROOT/lib/libQt6Core.so.6" ]; then
 fi
 if [ "${PIMPMYGRUB_PRINT_ENV:-}" = 1 ]; then echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"; exit 0; fi   # for diagnosis
 
-safe_env() {
+safe_env() {   # last resort: no GPU context, and X11 (through XWayland) instead of Wayland
   export QT_QUICK_BACKEND=software
   [ -n "${DISPLAY:-}" ] && export QT_QPA_PLATFORM=xcb
 }

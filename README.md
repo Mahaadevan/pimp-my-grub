@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/logo.png" width="96" alt="Pimp my GRUB icon"></p>
 
-# Pimp my GRUB (Barely Working)
+# Pimp my GRUB
 
 **A native Linux app to design GRUB themes visually, browse a theme store, and install a theme safely.**
 Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to you first and can be undone.
@@ -11,7 +11,7 @@ Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to yo
 
 | GRUB settings | Live preview (full screen) |
 |---|---|
-| ![GRUB settings: switches, help and warnings](docs/screenshots/settings.png) | ![Live preview with this computer's boot entries](docs/screenshots/live-preview.png) |
+| ![GRUB settings: checkboxes, help and warnings](docs/screenshots/settings.png) | ![Live preview with this computer's boot entries](docs/screenshots/live-preview.png) |
 
 | Classic layout | Style designer |
 |---|---|
@@ -25,7 +25,7 @@ Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to yo
 
 *The store screenshots use a small offline demo catalog (made-up themes) so they can be reproduced without a network connection.*
 
-> **Status: early (v0.6.2).** The editor, store UI and installer are working and tested in a sandbox, but the real
+> **Status: early (v0.6.3).** The editor, store UI and installer are working and tested in a sandbox, but the real
 > apply-to-`/boot` path has **not** been exercised on real hardware yet. Try it in a VM first. See [Status](#status-what-is-and-isnt-verified).
 
 ## Why this exists
@@ -74,11 +74,12 @@ HyperFluent, CyberGRUB-2077, Sidonia). Themes stay in their own repositories und
   themes are built from, and it was the missing piece for creating complex themes from scratch.
 - **More of `theme.txt`:** scrollbar track/thumb/padding, `highlight_overlay`, `id` (for `__timeout__` countdown items), `message-*`,
   `terminal-*`, image alignment, icons from `icons/`. Menus scroll when there are more entries than fit.
-- **GRUB settings** (own tab): the options of `/etc/default/grub` read from this computer and shown as switches, numbers and choices:
+- **GRUB settings** (own tab): the options of `/etc/default/grub` read from this computer and shown as checkboxes, numbers and choices:
   wait time, menu style, **boot the previously selected entry**, default entry, detect other operating systems, advanced-options
   submenu, recovery entries, quiet / splash, kernel options, distributor name, video mode, failed-boot wait. Each has help text,
   and a ⚠ warning where a wrong value can stop GRUB or the system from working. Changes are reviewed (exact diff), backed up,
-  validated and can be undone.
+  validated and can be undone. Most systems let only root read `/etc/default/grub` and `grub.cfg`; *Read as administrator…* then asks
+  polkit for one password and reads them through the helper (it only copies them to a temporary folder). The UI itself never runs as root.
 - **Live preview** (F5, full screen): the finished theme with this computer's boot entries and timeout, a running countdown, keyboard
   control (↑ ↓ Home End, Enter simulated, e, c, F1, Esc). Nothing is booted.
 - **Classic layout** (button next to GitHub): list configuration, general settings and appearance settings, arranged like the
@@ -89,7 +90,7 @@ HyperFluent, CyberGRUB-2077, Sidonia). Themes stay in their own repositories und
   file) into a GRUB font itself. No `grub-mkfont` / GRUB install is needed.
 - **Accurate preview:** real GRUB `.pf2` fonts are drawn glyph by glyph (so text looks like it will at boot), 9-slice
   `select_*.png` styles, icons and progress bars. TTF/OTF → PF2 conversion uses GRUB's own `grub-mkfont`.
-- **Store:** search, sort by popularity, cards with lazily loaded thumbnails and a resolution picker, *Edit* or *Install* in one click,
+- **Store:** search, sort by popularity, cards with lazily loaded thumbnails and a resolution picker, *Edit Theme* or *Install theme* in one click,
   plus live search of GitHub's `grub-theme` topic. Click a card to open its **detail view**: large preview, the repository's
   description, stars, a link to its GitHub page and the resolution choice.
   `cargo run -p pimp-my-grub-core --example build_catalog` (with `GITHUB_TOKEN`) pre-indexes the curated repos so the app needs no API calls on startup (script written, not yet run against live GitHub).
@@ -101,8 +102,8 @@ HyperFluent, CyberGRUB-2077, Sidonia). Themes stay in their own repositories und
   installed. Set `PIMPMYGRUB_NATIVE_DIALOGS=0` to always use Qt's dialog.
 - **Your colour:** the palette button in the header opens *Appearance*: pick the app's accent colour from presets, a hex
   field or the system colour chooser. It is remembered between runs. The GitHub button next to it opens the project page.
-- **Light:** CPU rendering only when something changes (no frame loop, no GPU needed), a virtualised store grid with downscaled
-  async thumbnails, one small native executable.
+- **Light:** the theme preview is drawn on the CPU only when something changes (no frame loop), a virtualised store grid with
+  downscaled async thumbnails, one small native executable.
 - **Look:** a built-in dark theme with an accent colour you choose (coral by default), drawn with Qt Quick Controls' `Basic` style so it looks the same on every desktop (set `QT_QUICK_CONTROLS_STYLE` to override).
 
 ## Safety model
@@ -175,8 +176,10 @@ with the official Qt binaries (`aqtinstall`). A build made on Ubuntu 24.04 needs
 Flatpak is intentionally not offered: a sandbox cannot run polkit against `/boot`.
 
 ### If the app crashes or does nothing when started
-The program draws with Qt's **software renderer** by default (no GPU driver needed; `PIMPMYGRUB_GPU=1` switches to the GPU). The launcher also retries once in **safe mode** (software drawing, X11 instead of Wayland) when the app crashes in its first seconds,
-and remembers it. You can force it with `PIMPMYGRUB_SAFE=1`, or go back to normal with `PIMPMYGRUB_SAFE=0` (and delete
+The program draws through Qt's normal graphics stack: **EGL/OpenGL on Wayland, GLX/EGL on X11** (Vulkan where Qt prefers it), so the
+window is tear-free and correctly scaled on HiDPI screens. If the driver cannot create a graphics context, `PIMPMYGRUB_SOFTWARE=1`
+forces CPU drawing (equivalently `QT_QUICK_BACKEND=software`). The launcher also retries once in **safe mode** (software drawing, X11
+instead of Wayland) when the app crashes in its first seconds, and remembers it. You can force it with `PIMPMYGRUB_SAFE=1`, or go back to normal with `PIMPMYGRUB_SAFE=0` (and delete
 `~/.cache/pimp-my-grub/safe-mode`). Diagnostics are in `~/.cache/pimp-my-grub/`: `last-run.log`, `first-attempt.log` (the crash that
 triggered safe mode) and `crash.log` (internal errors with a backtrace). To see everything live, start it from a terminal.
 
