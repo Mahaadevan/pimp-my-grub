@@ -1,5 +1,5 @@
-//! Render a theme folder to a PNG with the same renderer the editor uses:  cargo run -p pimp-my-grub-core --example preview -- <theme-dir> <out.png> [WxH]
-use pimp_my_grub_core::{editor::Editor, installer};
+//! Render a theme folder to a PNG with the same renderer the editor uses:  cargo run -p style-my-grub-core --example preview -- <theme-dir> <out.png> [WxH]
+use style_my_grub_core::{editor::Editor, installer};
 fn main() {
     let a: Vec<String> = std::env::args().collect();
     let files = installer::read_dir_files(std::path::Path::new(&a[1])).expect("read theme");

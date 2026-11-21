@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
-use tiny_skia::{Color, FilterQuality, Pixmap, PixmapPaint, Transform};
+use tiny_skia::{Color, FilterQuality, IntSize, Pixmap, PixmapPaint, Transform};
 
 const HANDLES: [(&str, f32, f32); 8] = [("nw", 0., 0.), ("n", 0.5, 0.), ("ne", 1., 0.), ("e", 1., 0.5), ("se", 1., 1.), ("s", 0.5, 1.), ("sw", 0., 1.), ("w", 0., 0.5)];
 pub const SCREEN_PRESETS: [(i32, i32); 6] = [(1920, 1080), (2560, 1440), (1366, 768), (1280, 720), (1024, 768), (800, 600)];
@@ -70,14 +70,33 @@ pub(crate) fn parent_uid(list: &[Comp], uid: u64, parent: Option<u64>) -> Option
     None
 }
 
-pub fn solid_png(rgb: (u8, u8, u8)) -> Vec<u8> {
+/// Shrink a picture to `w` x `h` by halving it until it is at most twice the target, then one last pass. None when the
+/// picture is not actually larger (nothing to gain).
+fn shrink(src: &Pixmap, w: u32, h: u32) -> Option<Pixmap> {
+    let (w, h) = (w.max(1), h.max(1));
+    if src.width() <= w && src.height() <= h { return None; }
+    let mut cur = Pixmap::from_vec(src.data().to_vec(), IntSize::from_wh(src.width(), src.height())?)?;
+    while cur.width() / 2 > w && cur.height() / 2 > h {
+        let (nw, nh) = (cur.width() / 2, cur.height() / 2);
+        let mut next = Pixmap::new(nw, nh)?;
+        let t = Transform::from_row(nw as f32 / cur.width() as f32, 0., 0., nh as f32 / cur.height() as f32, 0., 0.);
+        next.draw_pixmap(0, 0, cur.as_ref(), &PixmapPaint { quality: FilterQuality::Bilinear, ..Default::default() }, t, None);
+        cur = next;
+    }
+    let mut out = Pixmap::new(w, h)?;
+    let t = Transform::from_row(w as f32 / cur.width() as f32, 0., 0., h as f32 / cur.height() as f32, 0., 0.);
+    out.draw_pixmap(0, 0, cur.as_ref(), &PixmapPaint { quality: FilterQuality::Bilinear, ..Default::default() }, t, None);
+    Some(out)
+}
+
+fn solid_png(rgb: (u8, u8, u8)) -> Vec<u8> {
     let img = image::RgbaImage::from_pixel(1, 1, image::Rgba([rgb.0, rgb.1, rgb.2, 255]));
     let mut out = std::io::Cursor::new(Vec::new());
     let _ = img.write_to(&mut out, image::ImageFormat::Png);
     out.into_inner()
 }
 
-struct Snap { globals: IndexMap<String, String>, root: Vec<Comp>, screen: (i32, i32) }
+struct Snap { globals: IndexMap<String, String>, root: Vec<Comp>, assets: Assets, screen: (i32, i32), name: String }
 #[derive(PartialEq)]
 enum DragKind { Move, Resize, Pan }
 struct Drag { kind: DragKind, handle: &'static str, sx: f64, sy: f64, start: Rect, pan0: (f64, f64), moved: bool, uid: u64, parent: Rect }
@@ -119,10 +138,11 @@ impl Editor {
     }
     pub fn rev(&self) -> u64 { self.rev }
     pub(crate) fn touch(&mut self) { self.rev += 1; }
-    fn snap(&self) -> Snap { Snap { globals: self.doc.globals.clone(), root: self.doc.root.clone(), screen: self.doc.screen } }
+    // The pictures are shared with the document (`Arc`), so a snapshot copies the map, not the files.
+    fn snap(&self) -> Snap { Snap { globals: self.doc.globals.clone(), root: self.doc.root.clone(), assets: self.doc.assets.clone(), screen: self.doc.screen, name: self.name.clone() } }
     pub fn checkpoint(&mut self) { let s = self.snap(); self.undo.push(s); if self.undo.len() > 100 { self.undo.remove(0); } self.redo.clear(); }
     fn restore(&mut self, s: Snap) {
-        self.doc.globals = s.globals; self.doc.root = s.root; self.doc.screen = s.screen;
+        self.doc.globals = s.globals; self.doc.root = s.root; self.doc.assets = s.assets; self.doc.screen = s.screen; self.name = s.name;
         if let Some(id) = self.selected { if find(&self.doc.root, id).is_none() { self.selected = None; } }
         self.touch();
     }
@@ -138,14 +158,68 @@ impl Editor {
         self.touch();
     }
     pub fn reset(&mut self) { self.load(Doc::default(), "my-theme"); }
+    /// Swap in a whole different theme (the three "load" buttons) while keeping the one that was open as a single undo
+    /// step — their tooltips promise that Undo brings your theme back, so it has to.
+    fn load_replace(&mut self, doc: Doc, name: &str) {
+        let before = self.snap();
+        self.load(doc, name);
+        self.undo.push(before);
+        if self.undo.len() > 100 { self.undo.remove(0); }
+        self.redo.clear();
+    }
     pub fn load_files(&mut self, files: &BTreeMap<String, Vec<u8>>, name: &str) -> Result<(), String> { let d = doc_from_files(files)?; self.load(d, name); Ok(()) }
+
+    /// The demo theme that ships with the app ("Midnight", the same files as `examples/midnight`).
+    pub fn load_sample(&mut self) -> Result<(), String> {
+        let d = doc_from_files(&crate::sample::files())?;
+        self.load_replace(d, "midnight");
+        Ok(())
+    }
+
+    /// GRUB's own look with no theme at all: a black screen, its built-in font, a plain menu whose selected row is
+    /// inverted (light bar, black text) and the version line on top. This is what a freshly installed system shows.
+    pub fn load_classic(&mut self) {
+        let mut t = Editor::new();   // built on a scratch editor, so the document arrives as one undoable step
+        t.set_global("desktop-color", &q("#000000"));
+        t.set_global("title-text", &q("GNU GRUB  version 2.12"));
+        // GRUB draws the selected row as a plain filled rectangle; a 1x1 picture repeated over the row is exactly that.
+        for part in ["nw", "n", "ne", "w", "c", "e", "sw", "s", "se"] {
+            let name = format!("classic_select_{part}.png");
+            t.add_asset(&name, solid_png((188, 188, 188)));
+        }
+        t.add("boot_menu", &[
+            ("left", "0".to_string()), ("top", "24%".to_string()), ("width", "100%".to_string()), ("height", "60%".to_string()),
+            ("item_height", "28".to_string()), ("item_padding", "48".to_string()), ("item_spacing", "0".to_string()),
+            ("item_color", q("#ffffff")), ("selected_item_color", q("#000000")),
+            ("selected_item_pixmap_style", q("classic_select_*.png")),
+            ("icon_width", "0".to_string()), ("icon_height", "0".to_string()), ("item_icon_space", "0".to_string()),
+        ]);
+        self.load_replace(t.doc, "grub-default");
+    }
+
+    /// The theme GRUB is using on this computer right now (`GRUB_THEME` in /etc/default/grub). Read-only: the files are
+    /// only read, nothing on the system is touched.
+    pub fn load_current(&mut self, defaults: &IndexMap<String, String>) -> Result<(), String> {
+        let theme = defaults.get("GRUB_THEME").map(|s| s.trim().trim_matches('"')).unwrap_or("");
+        if theme.is_empty() {
+            return Err("This computer's GRUB does not use a theme (GRUB_THEME is not set in /etc/default/grub). Use \"Load Default Theme\" for GRUB's plain menu.".into());
+        }
+        let path = std::path::PathBuf::from(theme);
+        if !path.exists() { return Err(format!("The theme GRUB uses ({theme}) is not on this computer any more.")); }
+        let dir = if path.is_dir() { path } else { path.parent().map(|d| d.to_path_buf()).unwrap_or_else(|| std::path::PathBuf::from("/")) };
+        let files = crate::installer::read_dir_files(&dir)?;
+        let name = dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "current-theme".into());
+        let d = doc_from_files(&files)?;
+        self.load_replace(d, &name);
+        Ok(())
+    }
 
     /// Finished theme: theme.txt plus every asset.
     pub fn files(&self) -> BTreeMap<String, Vec<u8>> {
         let mut g = self.doc.globals.clone();
         g.shift_remove("screen-size");
         let mut out = BTreeMap::new();
-        out.insert("theme.txt".to_string(), serialize_theme(&g, &self.doc.root, "Made with Pimp my GRUB").into_bytes());
+        out.insert("theme.txt".to_string(), serialize_theme(&g, &self.doc.root, "Made with Style My GRUB").into_bytes());
         for (k, v) in &self.doc.assets { out.insert(k.clone(), v.as_ref().clone()); }
         out
     }
@@ -355,17 +429,40 @@ impl Editor {
         self.sync_scene_state();
         let changed = self.scene.sync(&self.doc.assets);
         let key = (self.rev, self.menu_sel, self.progress.to_bits(), changed);
-        let size_ok = self.scene_pix.as_ref().map(|p| (p.width() as i32, p.height() as i32) == self.doc.screen).unwrap_or(false);
+        // The theme is drawn at its own resolution times `scale`, so the zoomed editor and the full-screen preview are
+        // rendered at the size they are shown rather than an enlarged copy of the 1:1 picture.
+        let want = (((self.doc.screen.0 as f32) * self.scene.scale).round() as u32).max(1);
+        let want_h = (((self.doc.screen.1 as f32) * self.scene.scale).round() as u32).max(1);
+        let size_ok = self.scene_pix.as_ref().map(|p| (p.width(), p.height()) == (want, want_h)).unwrap_or(false);
         if size_ok && key.0 == self.drawn.0 && key.1 == self.drawn.1 && key.2 == self.drawn.2 && !changed { return; }
         self.rects = self.scene.layout(&self.doc);
-        if !size_ok { self.scene_pix = Pixmap::new(self.doc.screen.0.max(1) as u32, self.doc.screen.1.max(1) as u32); }
+        if !size_ok { self.scene_pix = Pixmap::new(want, want_h); }
         if let Some(p) = self.scene_pix.as_mut() { self.scene.draw(p, &self.doc, &self.rects, &DrawOpts { menu_sel: self.menu_sel, progress: self.progress }); }
         self.drawn = (self.rev, self.menu_sel, self.progress.to_bits(), false);
+    }
+
+    /// Put the rendered theme into a view pixmap at `k` pixels per scene pixel, with its top-left at (ox, oy).
+    /// Shrinking: average the picture down first and place that 1:1. One bilinear pass reads only the 2x2 pixels around
+    /// each new pixel, so squeezing 1080p into a quarter would make text and edges shimmer; halving repeatedly averages
+    /// every source pixel instead.
+    fn place_scene(sp: Option<&Pixmap>, view: &mut Pixmap, k: f32, ox: f32, oy: f32) {
+        let Some(sp) = sp else { return };
+        if k < 0.75 {
+            let (tw, th) = (((sp.width() as f32) * k).round().max(1.0) as u32, ((sp.height() as f32) * k).round().max(1.0) as u32);
+            if let Some(small) = shrink(sp, tw, th) {
+                view.draw_pixmap(0, 0, small.as_ref(), &PixmapPaint { quality: FilterQuality::Nearest, ..Default::default() }, Transform::from_translate(ox.round(), oy.round()), None);
+                return;
+            }
+        }
+        let quality = if k < 1.0 { FilterQuality::Bilinear } else { FilterQuality::Nearest };
+        view.draw_pixmap(0, 0, sp.as_ref(), &PixmapPaint { quality, ..Default::default() }, Transform::from_row(k, 0., 0., k, ox, oy), None);
     }
 
     /// Render the editor viewport. Returns premultiplied RGBA8 pixels, width and height.
     pub fn render_view(&mut self, w: u32, h: u32) -> Option<(&[u8], u32, u32)> {
         if w == 0 || h == 0 { return None; }
+        // Zoomed in, draw the theme itself bigger (up to 2x) instead of enlarging the pixels of the 1:1 picture.
+        self.scene.scale = (self.zoom as f32).clamp(1.0, 2.0);
         self.rerender_scene();
         let ok = self.view_pix.as_ref().map(|p| p.width() == w && p.height() == h).unwrap_or(false);
         if !ok { self.view_pix = Pixmap::new(w, h); }
@@ -375,13 +472,10 @@ impl Editor {
         let guides = self.guides;
         let screen = self.doc.screen;
         let acc = self.accent;
+        let k = zoom / self.scene.scale;   // the scene picture is already drawn at `scale`
         let view = self.view_pix.as_mut()?;
         view.fill(Color::from_rgba8(9, 9, 11, 255));
-        if let Some(sp) = self.scene_pix.as_ref() {
-            let quality = if zoom < 1.0 { FilterQuality::Bilinear } else { FilterQuality::Nearest };
-            view.draw_pixmap(0, 0, sp.as_ref(), &PixmapPaint { quality, ..Default::default() }, Transform::from_row(zoom, 0., 0., zoom, pan.0 as f32, pan.1 as f32), None);
-        }
-        let rect_px = |view: &mut Pixmap, x: f32, y: f32, w: f32, h: f32, c: (u8, u8, u8)| {
+        Self::place_scene(self.scene_pix.as_ref(), view, k, pan.0 as f32, pan.1 as f32);        let rect_px = |view: &mut Pixmap, x: f32, y: f32, w: f32, h: f32, c: (u8, u8, u8)| {
             fill(view, x.round() as i32, y.round() as i32, (w.round() as i32).max(1), (h.round() as i32).max(1), c);
         };
         let frame = |view: &mut Pixmap, x: f32, y: f32, w: f32, h: f32, c: (u8, u8, u8), t: f32| {
@@ -401,19 +495,47 @@ impl Editor {
     /// Full-screen preview: the finished screen scaled to fit `w` x `h` on black, with no editing marks.
     pub fn render_live(&mut self, w: u32, h: u32) -> Option<(&[u8], u32, u32)> {
         if w == 0 || h == 0 { return None; }
+        let (sw, sh) = (self.doc.screen.0 as f32, self.doc.screen.1 as f32);
+        let z = (w as f32 / sw).min(h as f32 / sh);
+        // The same theme, drawn at the size it is shown, so the full-screen simulation is not a scaled-up 1080p picture.
+        self.scene.scale = z.clamp(1.0, 2.0);
         self.rerender_scene();
         let ok = self.view_pix.as_ref().map(|p| p.width() == w && p.height() == h).unwrap_or(false);
         if !ok { self.view_pix = Pixmap::new(w, h); }
-        let (sw, sh) = (self.doc.screen.0 as f32, self.doc.screen.1 as f32);
-        let z = (w as f32 / sw).min(h as f32 / sh);
         let (ox, oy) = ((w as f32 - sw * z) / 2.0, (h as f32 - sh * z) / 2.0);
+        let k = z / self.scene.scale;
         let view = self.view_pix.as_mut()?;
         view.fill(Color::from_rgba8(0, 0, 0, 255));
-        if let Some(sp) = self.scene_pix.as_ref() {
-            let quality = if z < 1.0 { FilterQuality::Bilinear } else { FilterQuality::Nearest };
-            view.draw_pixmap(0, 0, sp.as_ref(), &PixmapPaint { quality, ..Default::default() }, Transform::from_row(z, 0., 0., z, ox, oy), None);
-        }
+        Self::place_scene(self.scene_pix.as_ref(), view, k, ox, oy);
         Some((view.data(), w, h))
+    }
+
+    /// Which boot entry is under this point of the full-screen preview (clicking a row selects it, as in GRUB).
+    pub fn entry_at(&mut self, w: u32, h: u32, x: f64, y: f64) -> Option<usize> {
+        if w == 0 || h == 0 { return None; }
+        self.ensure_layout();
+        let (sw, sh) = (self.doc.screen.0 as f64, self.doc.screen.1 as f64);
+        let z = (w as f64 / sw).min(h as f64 / sh).max(0.0001);
+        let (ox, oy) = ((w as f64 - sw * z) / 2.0, (h as f64 - sh * z) / 2.0);
+        let (sx, sy) = (((x - ox) / z) as i32, ((y - oy) / z) as i32);
+        fn pick<'a>(list: &'a [Comp], rects: &HashMap<u64, Rect>, x: i32, y: i32, found: &mut Option<(&'a Comp, Rect)>) {
+            for c in list {
+                if c.hidden { continue; }
+                if let Some(r) = rects.get(&c.uid) {
+                    if c.ty == "boot_menu" && x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h { *found = Some((c, *r)); }
+                }
+                pick(&c.children, rects, x, y, found);
+            }
+        }
+        let mut found = None;
+        pick(&self.doc.root, &self.rects, sx, sy, &mut found);
+        let (c, r) = found?;
+        let count = if self.entries.is_empty() { crate::render::SAMPLE_ENTRIES.len() } else { self.entries.len() };
+        let lay = self.scene.menu_layout(c, r, self.menu_sel, count);
+        if sy < lay.y { return None; }   // the padding above the first row is not a row
+        let row = ((sy - lay.y) / (lay.ih + lay.vs).max(1)) as usize;
+        let idx = lay.first + row;
+        (row < lay.visible && idx < count).then_some(idx)
     }
 
     // ------------------------------------------------------------ input

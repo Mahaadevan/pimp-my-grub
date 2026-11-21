@@ -1,9 +1,10 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import dev.pimpmygrub
+import dev.stylemygrub
 
-RowLayout {
+// Drag the thin handle between the panels to make the layers list, the canvas or the inspector wider or narrower.
+SplitView {
     readonly property var t: Tokens {}
     id: page
     property var backend
@@ -18,17 +19,28 @@ RowLayout {
         onStyleRequested: (k, l) => sdes.openFor(ctx.uid, k, l)
         onPresetRequested: (kind, id) => page.addPreset(kind, id); onPlainRequested: (kind) => page.addPlain(kind) }
     StyleDesigner { id: sdes; backend: page.backend; onCreated: page.backend.call("touch", "", "") }
-    spacing: 0
+    orientation: Qt.Horizontal
+    // A SplitView handle must stay purely visual: a HoverHandler here took the hover away from the SplitView,
+    // which then no longer knew which handle was grabbed and dragging did nothing. Use SplitHandle.hovered instead.
+    handle: Rectangle {
+        id: hHandle
+        implicitWidth: 6; implicitHeight: 5; color: "transparent"
+        containmentMask: Item { x: (hHandle.width - width) / 2; width: 12; height: hHandle.height }
+        Rectangle {
+            anchors.centerIn: parent; width: 1; height: parent.height
+            color: SplitHandle.pressed ? t.accent : (SplitHandle.hovered ? t.muted2 : t.border)
+        }
+    }
 
     Pane {
-        Layout.preferredWidth: 240; Layout.fillHeight: true; padding: 0
+        SplitView.preferredWidth: 240; SplitView.minimumWidth: 160; SplitView.maximumWidth: 460
+        padding: 0
         background: Rectangle { color: t.surface }
         LayersPanel { anchors.fill: parent; backend: page.backend; ctxMenu: ctx }
     }
-    Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: t.border }
 
     ColumnLayout {
-        Layout.fillWidth: true; Layout.fillHeight: true; spacing: 0
+        SplitView.fillWidth: true; SplitView.minimumWidth: 380; spacing: 0
         Rectangle {
             Layout.fillWidth: true; Layout.fillHeight: false
             Layout.preferredHeight: bar.implicitHeight + 12
@@ -80,9 +92,15 @@ RowLayout {
                         WheelHandler { onWheel: function(ev) { timeoutBox.apply((parseInt(timeoutBox.text) || 0) + (ev.angleDelta.y > 0 ? 1 : -1)) } }
                     }
                 }
-                AppButton { text: qsTr("Load default theme")
-                    tip: qsTr("Start over from GRUB's own plain menu: black background, default font, no styling, like a freshly installed system. Undo brings your theme back.")
-                    onClicked: page.backend.call("loadDefault", "", "") }
+                AppButton { text: qsTr("Load Sample Theme")
+                    tip: qsTr("Open “Midnight”, the finished demo theme that ships with the app: its own background, styles, countdown bar and key hints. Undo brings your theme back.")
+                    onClicked: { var r = page.backend.call("loadSample", "", ""); if (r.indexOf("ERR:") === 0) page.message(r.substring(4)) } }
+                AppButton { text: qsTr("Load Current Theme")
+                    tip: qsTr("Open the theme GRUB uses on this computer right now (GRUB_THEME in /etc/default/grub). It is only read; if the file is root-only the administrator password is asked once.")
+                    onClicked: { var r = page.backend.call("loadCurrent", "", ""); if (r.indexOf("ERR:") === 0) page.message(r.substring(4)) } }
+                AppButton { text: qsTr("Load Default Theme")
+                    tip: qsTr("Start over from GRUB's own plain menu: black screen, its built-in font, a plain list whose selected row is inverted, like a freshly installed system. Undo brings your theme back.")
+                    onClicked: { var r = page.backend.call("loadDefault", "", ""); if (r.indexOf("ERR:") === 0) page.message(r.substring(4)) } }
                 AppButton { text: "▶  " + qsTr("Live preview"); highlighted: false
                     tip: qsTr("Show the theme full screen and try it like the real GRUB: arrow keys move, Enter picks, the countdown runs. Uses this computer's boot entries when they can be read. (F5)")
                     onClicked: page.livePreview() }
@@ -155,9 +173,9 @@ RowLayout {
         }
     }
 
-    Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: t.border }
     Pane {
-        Layout.preferredWidth: 310; Layout.fillHeight: true; padding: 0
+        SplitView.preferredWidth: 310; SplitView.minimumWidth: 250; SplitView.maximumWidth: 520
+        padding: 0
         background: Rectangle { color: t.surface }
         InspectorPanel { anchors.fill: parent; backend: page.backend; designer: sdes }
     }

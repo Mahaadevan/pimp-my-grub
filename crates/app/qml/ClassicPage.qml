@@ -1,22 +1,19 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import dev.pimpmygrub
+import dev.stylemygrub
 
 // The "classic" layout: the same features arranged like the original GRUB Customizer, as three tabs:
 // list configuration (boot entries), general settings (timeout, default entry ...) and appearance settings (the theme).
 Item {
     id: root
-    readonly property var t: Tokens {}
+    readonly property var t: Tokens { }
     property var backend
     signal installTheme()
     signal livePreview()
     signal message(string m)
-    function reload() { settings.reload(); loadEntries() }
-    property var entries: []
-    property string cfgFile: ""
-    function loadEntries() { try { var h = JSON.parse(backend.call("hostInfo", "", "")); entries = h.entries; cfgFile = h.cfg } catch (e) { entries = [] } }
-    Component.onCompleted: { backend.call("select", "", ""); loadEntries() }
+    function reload() { settings.reload(); list.reload() }
+    Component.onCompleted: backend.call("select", "", "")
     property alias settingsPanel: settings
     signal reviewSettings(var edits)
 
@@ -42,57 +39,36 @@ Item {
             }
         }
         AppTabBar { id: tabs; Layout.leftMargin: 14; Layout.topMargin: 10; Layout.bottomMargin: 8
-            AppTabButton { text: qsTr("List configuration"); width: implicitWidth + 24 }
+            AppTabButton { text: qsTr("List Config"); width: implicitWidth + 24 }
             AppTabButton { text: qsTr("General settings"); width: implicitWidth + 24 }
             AppTabButton { text: qsTr("Appearance settings"); width: implicitWidth + 24 }
         }
         StackLayout {
             Layout.fillWidth: true; Layout.fillHeight: true; currentIndex: tabs.currentIndex
-            // ---- list configuration
-            Item {
-                ColumnLayout {
-                    anchors.fill: parent; anchors.margins: 16; spacing: 10
-                    Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: t.muted; font.pixelSize: 12
-                        text: root.entries.length > 0
-                              ? qsTr("The entries below are what GRUB lists on this computer (from %1). Their order and names come from your distribution's scripts in /etc/grub.d, so they are shown here but not edited. You can choose which one boots by default.").arg(root.cfgFile)
-                              : qsTr("The boot entries could not be read (grub.cfg is missing or not readable by your user). The settings still work.") }
-                    Rectangle {
-                        Layout.fillWidth: true; Layout.fillHeight: true; color: t.surface; border.width: 1; border.color: t.border; clip: true
-                        ListView {
-                            id: lv; anchors.fill: parent; anchors.margins: 4; model: root.entries; clip: true; boundsBehavior: Flickable.StopAtBounds
-                            ScrollBar.vertical: AppScrollBar { }
-                            delegate: ItemDelegate {
-                                required property var modelData
-                                width: lv.width - 8; height: 42; hoverEnabled: true
-                                readonly property bool isDefault: settings.val("remember_last") !== "true" && settings.val("default_entry") === modelData.id
-                                background: Rectangle { color: parent.hovered ? t.surface2 : "transparent" }
-                                contentItem: RowLayout {
-                                    spacing: 10
-                                    Item { Layout.preferredWidth: 14 + modelData.depth * 22 }
-                                    Label { text: modelData.submenu ? "▸" : "◆"; color: isDefault ? t.accent : t.muted2 }
-                                    Label { text: modelData.title; Layout.fillWidth: true; elide: Text.ElideRight; color: t.text }
-                                    Label { visible: isDefault; text: qsTr("default"); color: t.accent; font.pixelSize: 11 }
-                                    Label { text: modelData.id; color: t.muted2; font.family: t.mono; font.pixelSize: 11 }
-                                    AppButton { visible: modelData.depth === 0 && !isDefault; text: qsTr("Make default")
-                                        tip: qsTr("Boot this entry when you do nothing. This turns off \"Boot the previously selected entry\".")
-                                        onClicked: { settings.setVal("remember_last", "false"); settings.setVal("default_entry", modelData.id) } }
-                                }
-                            }
-                        }
-                    }
+            // ---- list configuration (the same panel as the List Config tab)
+            HostEntriesPanel { id: list; backend: root.backend; grubSettings: settings; onMessage: (m) => root.message(m) }
+            // ---- general settings (the same panel as the General tab)
+            ConfigPanel { id: settings; backend: root.backend; compact: true; onReview: (e) => root.reviewSettings(e); onStatus: (m) => root.message(m) }
+            // ---- appearance settings: the theme-wide options next to a finished-look preview (drag the divider
+            // between them, like on the modern Appearance tab)
+            SplitView {
+                orientation: Qt.Horizontal
+                handle: Rectangle {
+                    id: aHandle
+                    implicitWidth: 6; implicitHeight: 6; color: "transparent"
+                    containmentMask: Item { x: (aHandle.width - width) / 2; width: 12; height: aHandle.height }
+                    Rectangle { anchors.centerIn: parent; width: 1; height: parent.height
+                        color: SplitHandle.pressed ? t.accent : (SplitHandle.hovered ? t.muted2 : t.border) }
                 }
-            }
-            // ---- general settings (the same panel as the GRUB settings tab)
-            ConfigPanel { id: settings; backend: root.backend; compact: true; onReview: (e) => root.reviewSettings(e) }
-            // ---- appearance settings: the theme-wide options next to a finished-look preview
-            RowLayout {
-                spacing: 0
-                Rectangle { Layout.fillWidth: true; Layout.fillHeight: true; color: "black"
+                Item {
+                    SplitView.fillWidth: true; SplitView.minimumWidth: 380
+                    Rectangle { anchors.fill: parent; color: "black"; z: -1 }
                     SceneItem { id: thumb; anchors.fill: parent; anchors.margins: 12; live: true
                         Connections { target: root.backend; function onRevChanged() { thumb.input(6, 0, 0, 0, 0, 0) } }
-                        Component.onCompleted: input(6, 0, 0, 0, 0, 0) } }
-                Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: t.border }
-                Pane { Layout.preferredWidth: 340; Layout.fillHeight: true; padding: 0; background: Rectangle { color: t.surface }
+                        Component.onCompleted: input(6, 0, 0, 0, 0, 0) }
+                }
+                Pane { SplitView.preferredWidth: 340; SplitView.minimumWidth: 260; SplitView.maximumWidth: 560
+                    padding: 0; background: Rectangle { color: t.surface }
                     InspectorPanel { anchors.fill: parent; backend: root.backend; designer: classicDesigner } }
             }
         }

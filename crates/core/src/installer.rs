@@ -6,9 +6,9 @@ use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-pub const HELPER: &str = include_str!("../../../helper/pimp-my-grub-helper.sh");
+pub const HELPER: &str = include_str!("../../../helper/style-my-grub-helper.sh");
 /// Installed by the distro packages together with a polkit policy (friendly auth dialog).
-pub const INSTALLED_HELPER: &str = "/usr/libexec/pimp-my-grub/pimp-my-grub-helper";
+pub const INSTALLED_HELPER: &str = "/usr/libexec/style-my-grub/style-my-grub-helper";
 const SYSTEM_PATH: &str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 const MAX_TOTAL: usize = 64 * 1024 * 1024;
 const MAX_FILE: usize = 16 * 1024 * 1024;
@@ -53,7 +53,7 @@ pub fn parse_report(lines: &[String]) -> Report {
 pub fn stage_root() -> PathBuf {
     let uid = std::fs::metadata("/proc/self").map(|m| m.uid()).unwrap_or(0);
     let base = std::env::var("XDG_RUNTIME_DIR").ok().filter(|p| Path::new(p).is_dir()).unwrap_or_else(|| "/tmp".into());
-    PathBuf::from(base).join(format!("pimpmygrub-{uid}"))
+    PathBuf::from(base).join(format!("stylemygrub-{uid}"))
 }
 
 /// Write whitelisted files into a private staging folder. The helper re-validates it as root.
@@ -149,7 +149,7 @@ pub fn convert_font(ttf: &[u8], size: u32) -> Result<Vec<u8>, String> {
     if !(8..=160).contains(&size) { return Err("font size must be between 8 and 160".into()); }
     let tool = ["grub-mkfont", "grub2-mkfont"].into_iter().find(|t| SYSTEM_PATH.split(':').any(|d| Path::new(d).join(t).is_file()))
         .ok_or("grub-mkfont was not found. Install grub-common (Debian/Ubuntu) or grub2-tools (Fedora).")?;
-    let tmp = std::env::temp_dir().join(format!("pimpmygrub-font-{}", std::process::id()));
+    let tmp = std::env::temp_dir().join(format!("stylemygrub-font-{}", std::process::id()));
     std::fs::create_dir_all(&tmp).map_err(|e| e.to_string())?;
     let (inp, out) = (tmp.join("in.ttf"), tmp.join("out.pf2"));
     std::fs::write(&inp, ttf).map_err(|e| e.to_string())?;
@@ -172,13 +172,13 @@ pub fn run_helper(mode: &str, args: &[String], on_line: &mut dyn FnMut(&str)) ->
         let stage = args.first().ok_or("missing staged folder")?;
         let canon = std::fs::canonicalize(stage).map_err(|e| e.to_string())?;
         let root = std::fs::canonicalize(stage_root()).map_err(|e| e.to_string())?;
-        if !canon.starts_with(&root) { return Err("staged folder is outside the Pimp my GRUB staging area".into()); }
+        if !canon.starts_with(&root) { return Err("staged folder is outside the Style My GRUB staging area".into()); }
     }
     let installed = Path::new(INSTALLED_HELPER).is_file();
     let mut cmd;
-    if privileged { cmd = Command::new("pkexec"); if installed { cmd.arg(INSTALLED_HELPER); } else { cmd.args(["/bin/sh", "-c", HELPER, "pimp-my-grub-helper"]); } }
+    if privileged { cmd = Command::new("pkexec"); if installed { cmd.arg(INSTALLED_HELPER); } else { cmd.args(["/bin/sh", "-c", HELPER, "style-my-grub-helper"]); } }
     else if installed { cmd = Command::new(INSTALLED_HELPER); }
-    else { cmd = Command::new("/bin/sh"); cmd.args(["-c", HELPER, "pimp-my-grub-helper"]); }
+    else { cmd = Command::new("/bin/sh"); cmd.args(["-c", HELPER, "style-my-grub-helper"]); }
     cmd.arg(mode).args(args);
     // AppImage-style library paths would break system tools.
     for k in ["LD_LIBRARY_PATH", "LD_PRELOAD", "APPDIR", "APPIMAGE", "ARGV0", "OWD", "PYTHONHOME", "PERLLIB", "QT_PLUGIN_PATH", "QML2_IMPORT_PATH"] { cmd.env_remove(k); }

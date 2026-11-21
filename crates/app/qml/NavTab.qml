@@ -5,7 +5,7 @@ import QtQuick.Controls
 TabButton {
     id: c
     readonly property var t: Tokens {}
-    implicitHeight: 40; leftPadding: 14; rightPadding: 14
+    implicitHeight: 40; leftPadding: 6; rightPadding: 6
     hoverEnabled: true; font.pixelSize: 13; font.weight: Font.Medium
     contentItem: Text {
         text: c.text; font: c.font

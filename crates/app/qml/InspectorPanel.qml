@@ -44,7 +44,8 @@ ScrollView { ScrollBar.vertical: AppScrollBar { } ScrollBar.horizontal: AppScrol
         onAccepted: { var r = backend.call("addFont", fontDlg.path, Math.max(8, Math.min(160, parseInt(sizeBox.text) || 24)).toString()); if (r.indexOf("ERR:") === 0) root.note = r.substring(4); else { root.note = qsTr("Font added: %1").arg(r); if (root.target) root.set(root.target, r) } } }
 
     ColumnLayout {
-        width: root.availableWidth; spacing: 6
+        // Leave room for the scroll bar, so the font and asset rows (and their ✕ buttons) are never drawn under it.
+        width: Math.max(0, root.availableWidth - 10); spacing: 6
         Label { text: root.info.title.toUpperCase(); font.bold: true; font.pixelSize: 11; font.letterSpacing: 0.8; color: t.muted; Layout.leftMargin: 14; Layout.topMargin: 14; Layout.bottomMargin: 6 }
 
         // position and size

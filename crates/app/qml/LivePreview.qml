@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Window
-import dev.pimpmygrub
+import dev.stylemygrub
 
 // Full-screen simulation of the GRUB menu. It shows the theme as GRUB would, with the boot entries and timeout of THIS
 // computer when they can be read, a running countdown, and keyboard control like the real thing. Nothing is booted.
@@ -20,7 +20,7 @@ Window {
     readonly property int count: entries.length > 0 ? entries.length : 5
     visibility: Window.Hidden
     color: "black"
-    title: qsTr("Pimp my GRUB: live preview")
+    title: qsTr("Style My GRUB: live preview")
 
     function call(c, a) { return backend.call(c, a === undefined ? "" : String(a), "") }
     function start() {
@@ -66,11 +66,21 @@ Window {
             else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { w.bootSelected() }
             else if (e.key === Qt.Key_E) { w.stopCounting(); w.banner = qsTr("Edit the boot commands\n(not available in the preview)"); bannerTimer.restart() }
             else if (e.key === Qt.Key_C) { w.stopCounting(); w.banner = qsTr("grub> _\n(The GRUB command line is not available in the preview)"); bannerTimer.restart() }
+            else if (e.key === Qt.Key_Space) { w.counting = !w.counting; if (w.counting && w.secs <= 0) { w.secs = w.total; w.counting = true } w.push() }
+            else if (e.key === Qt.Key_R) { w.secs = w.total; w.counting = true; w.push() }
             else if (e.key === Qt.Key_F1 || e.key === Qt.Key_Question) { w.help = true; helpTimer.restart() }
             else w.stopCounting()
             e.accepted = true
         }
-        MouseArea { anchors.fill: parent; onClicked: scene.forceActiveFocus() }
+        // Clicking a row selects it, like the mouse in GRUB's own menu (and like the reference simulator).
+        MouseArea {
+            anchors.fill: parent
+            onClicked: (m) => {
+                scene.forceActiveFocus()
+                var r = w.backend.call("entryAt", m.x + "," + m.y + "," + width + "," + height, "")
+                if (r !== "" && r.indexOf("ERR:") !== 0) { w.stopCounting(); w.sel = parseInt(r); w.push() }
+            }
+        }
     }
 
     // like GRUB, the countdown ticks once a second until a key is pressed
@@ -89,6 +99,6 @@ Window {
         width: Math.min(parent.width - 40, hint.implicitWidth + 36); height: hint.implicitHeight + 20; color: "#d90a0c10"; border.width: 1; border.color: "#33ffffff"
         Behavior on opacity { NumberAnimation { duration: 250 } }
         Text { id: hint; anchors.centerIn: parent; color: "#d6d9df"; font.pixelSize: 13; horizontalAlignment: Text.AlignHCenter
-            text: qsTr("LIVE PREVIEW · ↑ ↓ choose · Enter boots (simulated) · e / c as in GRUB · F1 help · Esc leaves") + "\n" + w.source }
+            text: qsTr("LIVE PREVIEW · ↑ ↓ or click a row · Enter boots (simulated) · Space pauses · R restarts the countdown · e / c as in GRUB · F1 help · Esc leaves") + "\n" + w.source }
     }
 }

@@ -60,7 +60,7 @@ Dialog {
             ColumnLayout { visible: s.phase === "review"; Layout.fillWidth: true; spacing: 10
                 Frame { Layout.fillWidth: true; background: Rectangle { color: "#10241a"; border.color: "#1f5a3a" }
                     Label { width: parent.width; wrapMode: Text.Wrap; color: "#d6f5e3"; font.pixelSize: 12
-                        text: qsTr("<b>Safe by design.</b> Your current <code>/etc/default/grub</code> and <code>grub.cfg</code> are backed up in <code>/var/lib/pimp-my-grub</code> first. The new boot menu is generated and validated before it replaces the old one, and any error restores everything automatically. If a theme ever fails to load, GRUB shows its plain text menu; your OS entries are never removed.") } }
+                        text: qsTr("<b>Safe by design.</b> Your current <code>/etc/default/grub</code> and <code>grub.cfg</code> are backed up in <code>/var/lib/style-my-grub</code> first. The new boot menu is generated and validated before it replaces the old one, and any error restores everything automatically. If a theme ever fails to load, GRUB shows its plain text menu; your OS entries are never removed.") } }
                 GridLayout { columns: 2; Layout.fillWidth: true; visible: !dlg.settingsMode
                     Label { text: qsTr("Theme name") }
                     AppField { id: nameField; Layout.fillWidth: true; onEditingFinished: if (dlg.nameOk) dlg.plan() }
@@ -88,7 +88,7 @@ Dialog {
                             background: Rectangle { color: t.bg; border.width: 1; border.color: t.border } } }
                     Frame { Layout.fillWidth: true; background: Rectangle { color: t.surface2; border.color: t.border }
                         Label { width: parent.width; wrapMode: Text.Wrap; font.pixelSize: 12
-                            text: qsTr("<b>If something looks wrong later</b><br>• Open <i>Manage</i> → <i>Undo last change</i>.<br>• Original files stay in <code>/var/lib/pimp-my-grub/original/</code>. Copy <code>default-grub</code> back to <code>/etc/default/grub</code>, then run <code>sudo update-grub</code> (Debian/Ubuntu) or <code>sudo grub2-mkconfig -o /boot/grub2/grub.cfg</code> (Fedora/openSUSE).<br>• From a live USB: mount your system, restore <code>/etc/default/grub</code> and regenerate the config.") } }
+                            text: qsTr("<b>If something looks wrong later</b><br>• Open <i>Manage</i> → <i>Undo last change</i>.<br>• Original files stay in <code>/var/lib/style-my-grub/original/</code>. Copy <code>default-grub</code> back to <code>/etc/default/grub</code>, then run <code>sudo update-grub</code> (Debian/Ubuntu) or <code>sudo grub2-mkconfig -o /boot/grub2/grub.cfg</code> (Fedora/openSUSE).<br>• From a live USB: mount your system, restore <code>/etc/default/grub</code> and regenerate the config.") } }
                 }
                 RowLayout { visible: !(s.plan && !s.plan.fatal); Layout.fillWidth: true; Item { Layout.fillWidth: true } AppButton { text: qsTr("Close"); onClicked: dlg.close() } }
             }
@@ -124,13 +124,13 @@ Dialog {
             ColumnLayout { visible: s.phase === "manage"; Layout.fillWidth: true; spacing: 8
                 Frame { Layout.fillWidth: true; visible: !!s.sys; background: Rectangle { color: t.surface2; border.color: t.border }
                     Label { width: parent.width; wrapMode: Text.Wrap
-                        text: s.sys ? qsTr("GRUB folder: %1 · %2 · %3<br>Current theme: %4<br>Pimp my GRUB theme: <b>%5</b>").arg(s.sys.info.grub_dir || "").arg((s.sys.info.firmware || "").toUpperCase()).arg(s.sys.info.grub_version || "").arg(s.sys.info.current_theme || qsTr("none")).arg(s.sys.info.managed_name || qsTr("none installed")) : "" } }
+                        text: s.sys ? qsTr("GRUB folder: %1 · %2 · %3<br>Current theme: %4<br>Style My GRUB theme: <b>%5</b>").arg(s.sys.info.grub_dir || "").arg((s.sys.info.firmware || "").toUpperCase()).arg(s.sys.info.grub_version || "").arg(s.sys.info.current_theme || qsTr("none")).arg(s.sys.info.managed_name || qsTr("none installed")) : "" } }
                 Repeater { model: s.sys ? s.sys.warns : []; delegate: Label { text: "⚠ " + modelData; color: t.warn; wrapMode: Text.Wrap; Layout.fillWidth: true } }
                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; opacity: 0.7; font.pixelSize: 12
-                    text: qsTr("Undo restores the previous state (and previous theme if there was one). Remove deletes everything Pimp my GRUB added and restores your original theme settings. Both regenerate the boot menu safely.") }
+                    text: qsTr("Undo restores the previous state (and previous theme if there was one). Remove deletes everything Style My GRUB added and restores your original theme settings. Both regenerate the boot menu safely.") }
                 RowLayout { Layout.fillWidth: true
                     AppButton { text: qsTr("Undo last change"); enabled: s.sys && s.sys.info.can_rollback === "yes"; onClicked: dlg.backend.call("installRollback", "", "") }
-                    AppButton { text: qsTr("Remove all Pimp my GRUB changes"); enabled: s.sys && !!s.sys.info.managed_name; onClicked: dlg.backend.call("installUninstall", "", "") }
+                    AppButton { text: qsTr("Remove all Style My GRUB changes"); enabled: s.sys && !!s.sys.info.managed_name; onClicked: dlg.backend.call("installUninstall", "", "") }
                     Item { Layout.fillWidth: true }
                     AppButton { text: qsTr("Close"); onClicked: dlg.close() } } }
         }

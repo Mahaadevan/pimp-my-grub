@@ -1,9 +1,9 @@
 [package]
-name = "pimp-my-grub-core"
+name = "style-my-grub-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Pimp my GRUB engine: theme model, renderer, store, installer client (no GUI dependencies)"
+description = "Style my GRUB engine: theme model, renderer, store, installer client (no GUI dependencies)"
 
 [lib]
 doctest = false

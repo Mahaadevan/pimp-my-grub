@@ -71,7 +71,7 @@ pub fn index_files(r: &RepoRef, files: &[FileEntry]) -> Vec<StoreTheme> {
 
 // -------------------------------------------------------------------- network
 fn get(url: &str, limit: u64) -> Result<Vec<u8>, String> {
-    let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(25)).user_agent("pimp-my-grub").build();
+    let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(25)).user_agent("style-my-grub").build();
     let mut req = agent.get(url);
     // An optional token lifts GitHub's API rate limit (used when building the catalog in CI).
     if let (true, Ok(t)) = (url.starts_with("https://api.github.com"), std::env::var("GITHUB_TOKEN")) { req = req.set("Authorization", &format!("Bearer {t}")); }
@@ -84,7 +84,7 @@ fn get(url: &str, limit: u64) -> Result<Vec<u8>, String> {
 
 pub fn cache_dir() -> PathBuf {
     let base = std::env::var("XDG_CACHE_HOME").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into())).join(".cache"));
-    base.join("pimp-my-grub")
+    base.join("style-my-grub")
 }
 
 fn list_files(repo: &str, branch: &str) -> Result<Vec<FileEntry>, String> {
@@ -100,8 +100,8 @@ fn list_files(repo: &str, branch: &str) -> Result<Vec<FileEntry>, String> {
 
 /// Bundled catalog: curated repos and, when built by CI, fully indexed themes.
 pub fn catalog() -> (Vec<RepoRef>, Vec<StoreTheme>) {
-    // PIMPMYGRUB_CATALOG=/path/catalog.json overrides the bundled list (offline mirrors, testing).
-    let text = std::env::var("PIMPMYGRUB_CATALOG").ok().and_then(|p| std::fs::read_to_string(p).ok()).unwrap_or_else(|| CATALOG.to_string());
+    // STYLEMYGRUB_CATALOG=/path/catalog.json overrides the bundled list (offline mirrors, testing).
+    let text = std::env::var("STYLEMYGRUB_CATALOG").ok().and_then(|p| std::fs::read_to_string(p).ok()).unwrap_or_else(|| CATALOG.to_string());
     let j: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
     (serde_json::from_value(j["repos"].clone()).unwrap_or_default(), serde_json::from_value(j["themes"].clone()).unwrap_or_default())
 }

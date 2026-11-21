@@ -16,7 +16,7 @@ ColumnLayout {
     spacing: 0
 
     Label { text: qsTr("LAYERS"); font.bold: true; font.pixelSize: 11; font.letterSpacing: 0.8; color: t.muted
-        Layout.fillWidth: true; leftPadding: 14; topPadding: 14; bottomPadding: 10 }
+        Layout.fillWidth: true; leftPadding: 12; topPadding: 14; bottomPadding: 10 }
     Rectangle { Layout.fillWidth: true; height: 1; color: t.border }
     ListView {
         Layout.fillWidth: true; Layout.fillHeight: true; clip: true
@@ -27,7 +27,7 @@ ColumnLayout {
             width: ListView.view.width; height: 32
             highlighted: modelData.selected
             hoverEnabled: true
-            leftPadding: 10 + modelData.depth * 14; rightPadding: 6
+            leftPadding: 12 + modelData.depth * 14; rightPadding: 16   // right padding clears the overlay scroll bar
             background: Rectangle {
                 color: modelData.selected ? t.accentSoft : rowDelegate.hovered ? t.surface2 : "transparent"
                 Rectangle { width: 2; height: parent.height; color: t.accent; visible: modelData.selected }
@@ -35,9 +35,16 @@ ColumnLayout {
             onClicked: root.backend.call("select", modelData.uid.toString(), "")
             TapHandler { acceptedButtons: Qt.RightButton; onTapped: (pt) => { root.backend.call("select", modelData.uid.toString(), ""); if (root.ctxMenu) root.ctxMenu.openAt(parent, pt.position.x, pt.position.y) } }
             contentItem: RowLayout {
-                spacing: 6
-                Label { text: root.icons[modelData.type] || "?"; Layout.preferredWidth: 16; horizontalAlignment: Text.AlignHCenter; color: modelData.selected ? t.accent : t.muted }
-                Label { text: modelData.label; Layout.fillWidth: true; elide: Text.ElideRight; opacity: modelData.hidden ? 0.4 : 1 }
+                spacing: 8
+                // The icon glyphs all have a different width, so each one sits centred in a fixed slot: every name then
+                // starts at the same x, whatever the element type.
+                Item {
+                    implicitWidth: 16; implicitHeight: 16; Layout.alignment: Qt.AlignVCenter
+                    Label { anchors.centerIn: parent; text: root.icons[modelData.type] || "?";
+                        color: modelData.selected ? t.accent : t.muted }
+                }
+                Label { text: modelData.label; Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter; verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight; opacity: modelData.hidden ? 0.4 : 1 }
                 AppIconButton { tip: modelData.locked ? qsTr("Locked: click to unlock") : qsTr("Click to lock the position"); text: modelData.locked ? "◆" : "·"; padding: 2; implicitWidth: 22; implicitHeight: 22; flat: true; onClicked: root.backend.call("toggle", modelData.uid.toString(), "locked") }
                 AppIconButton { tip: modelData.hidden ? qsTr("Hidden: click to show") : qsTr("Click to hide in the preview and export"); text: modelData.hidden ? "○" : "●"; padding: 2; implicitWidth: 22; implicitHeight: 22; flat: true; onClicked: root.backend.call("toggle", modelData.uid.toString(), "hidden") }
             }

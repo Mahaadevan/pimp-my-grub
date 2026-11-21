@@ -1,6 +1,6 @@
 //! PF2 (GRUB bitmap font) reader. Drawing the real glyphs makes previews match boot.
 use std::collections::HashMap;
-use tiny_skia::Pixmap;
+use tiny_skia::{FilterQuality, IntSize, Pixmap, PixmapPaint, Transform};
 
 pub struct Glyph { pub w: i32, pub h: i32, pub xo: i32, pub yo: i32, pub dw: i32, pub bits: Vec<u8> }
 pub struct Pf2 { pub name: String, pub ascent: i32, pub descent: i32, pub maxw: i32, pub glyphs: HashMap<u32, Glyph> }
@@ -80,6 +80,45 @@ impl Pf2 {
                 }
             }
             pen += g.dw;
+        }
+    }
+
+    /// The same, drawn `scale` times larger (the editor when zoomed in). The glyph mask is copied up without smoothing, so
+    /// zoomed text stays crisp: a pixel of the 1:1 picture simply becomes a bigger square, the way magnifying a picture
+    /// looks, instead of turning into a grey smear.
+    pub fn draw_scaled(&self, pix: &mut Pixmap, text: &str, x: i32, y: i32, rgb: (u8, u8, u8), scale: f32) {
+        if !(scale > 0.0) || (scale - 1.0).abs() < 0.02 { return self.draw(pix, text, x, y, rgb); }
+        let s = scale;
+        let mut pen = x as f32;
+        let base = y as f32 + self.ascent as f32;
+        for ch in text.chars() {
+            let Some(g) = self.glyphs.get(&(ch as u32)) else { pen += (self.maxw / 2) as f32; continue };
+            if g.w > 0 && g.h > 0 {
+                let mut mask = image::GrayImage::new(g.w as u32, g.h as u32);
+                for row in 0..g.h {
+                    for col in 0..g.w {
+                        let idx = (row * g.w + col) as usize;
+                        if g.bits[idx >> 3] & (0x80 >> (idx & 7)) != 0 { mask.put_pixel(col as u32, row as u32, image::Luma([255])); }
+                    }
+                }
+                let (nw, nh) = (((g.w as f32) * s).round().max(1.0) as u32, ((g.h as f32) * s).round().max(1.0) as u32);
+                let grown = image::imageops::resize(&mask, nw, nh, image::imageops::FilterType::Nearest);
+                // Premultiplied, like every other pixel the renderer draws: colour * coverage.
+                let mut data = vec![0u8; (nw * nh * 4) as usize];
+                for (i, p) in grown.pixels().enumerate() {
+                    let a = p.0[0] as u32;
+                    data[i * 4] = ((rgb.0 as u32 * a + 127) / 255) as u8;
+                    data[i * 4 + 1] = ((rgb.1 as u32 * a + 127) / 255) as u8;
+                    data[i * 4 + 2] = ((rgb.2 as u32 * a + 127) / 255) as u8;
+                    data[i * 4 + 3] = a as u8;
+                }
+                if let Some(gp) = IntSize::from_wh(nw, nh).and_then(|sz| Pixmap::from_vec(data, sz)) {
+                    let gx = ((pen + g.xo as f32) * s).round();
+                    let gy = ((base - g.yo as f32 - g.h as f32) * s).round();
+                    pix.draw_pixmap(0, 0, gp.as_ref(), &PixmapPaint { quality: FilterQuality::Nearest, ..Default::default() }, Transform::from_translate(gx, gy), None);
+                }
+            }
+            pen += g.dw as f32;
         }
     }
 }

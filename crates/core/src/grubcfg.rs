@@ -208,6 +208,84 @@ pub fn to_changes(m: &IndexMap<String, String>, edits: &HashMap<String, String>)
 /// The file the helper reads: one `KEY=VALUE` per line.
 pub fn conf_text(changes: &[(String, String)]) -> String { changes.iter().map(|(k, v)| format!("{k}={v}\n")).collect() }
 
+/// The markers the helper uses for the one block it writes at the end of `/etc/default/grub`.
+pub const CFG_BEGIN: &str = "# >>> style-my-grub settings block (do not edit by hand) >>>";
+pub const CFG_END: &str = "# <<< style-my-grub settings block <<<";
+
+/// The option on the settings page that a `GRUB_*` line belongs to (used to link the file text and the controls).
+pub fn option_for_key(k: &str) -> &'static str {
+    match k {
+        "GRUB_TIMEOUT" => "timeout",
+        "GRUB_TIMEOUT_STYLE" => "timeout_style",
+        "GRUB_DEFAULT" | "GRUB_SAVEDEFAULT" => "default_entry",
+        "GRUB_DISABLE_OS_PROBER" => "os_prober",
+        "GRUB_DISABLE_SUBMENU" => "submenu",
+        "GRUB_DISABLE_RECOVERY" => "recovery",
+        "GRUB_CMDLINE_LINUX_DEFAULT" => "cmdline_default",
+        "GRUB_CMDLINE_LINUX" => "cmdline",
+        "GRUB_DISTRIBUTOR" => "distributor",
+        "GRUB_GFXPAYLOAD_LINUX" => "gfxpayload",
+        "GRUB_RECORDFAIL_TIMEOUT" => "recordfail",
+        _ => "",
+    }
+}
+
+/// One line of the block: `GRUB_X="value"` or `unset GRUB_X`.
+fn block_entry(line: &str) -> Option<(String, String)> {
+    let t = line.trim();
+    if let Some(rest) = t.strip_prefix("unset ") {
+        let k = rest.trim();
+        return k.starts_with("GRUB_").then(|| (k.to_string(), String::new()));
+    }
+    let (k, v) = t.split_once('=')?;
+    let k = k.trim();
+    if !k.starts_with("GRUB_") { return None; }
+    Some((k.to_string(), v.trim().trim_matches('"').to_string()))
+}
+
+/// `/etc/default/grub` as it will look after this change: every line the person wrote stays exactly as it is, and the
+/// marked block the helper rewrites is shown under it with the new values. Each line carries the option it belongs to and
+/// whether this change touches it, so the settings page can highlight the file beside the controls.
+pub fn preview_json(file_text: &str, edits: &HashMap<String, String>, host: &Host) -> String {
+    let changes = match to_changes(&host.defaults, edits) {
+        Ok(c) => c,
+        Err(e) => return json!({ "error": e, "lines": [], "changed": 0 }).to_string(),
+    };
+    let mut kept: Vec<String> = Vec::new();
+    let mut block: IndexMap<String, String> = IndexMap::new();
+    let mut in_block = false;
+    for line in file_text.lines() {
+        let t = line.trim();
+        if t == CFG_BEGIN { in_block = true; continue; }
+        if t == CFG_END { in_block = false; continue; }
+        if in_block { if let Some((k, v)) = block_entry(t) { block.insert(k, v); } continue; }
+        kept.push(line.to_string());
+    }
+    for (k, v) in &changes { block.insert(k.clone(), v.clone()); }
+    let changed_keys: Vec<&str> = changes.iter().map(|(k, _)| k.as_str()).collect();
+    let mut lines: Vec<Value> = Vec::new();
+    let push = |lines: &mut Vec<Value>, text: String, changed: bool, option: String, kind: &str| {
+        let n = lines.len() + 1;
+        lines.push(json!({ "n": n, "text": text, "changed": changed, "option": option, "kind": kind }));
+    };
+    for line in &kept {
+        let key = line.trim().trim_start_matches("export ").trim();
+        let key = key.split('=').next().unwrap_or("").trim();
+        let opt = if block.contains_key(key) { option_for_key(key).to_string() } else { String::new() };
+        push(&mut lines, line.clone(), false, opt, "line");
+    }
+    if !block.is_empty() {
+        push(&mut lines, CFG_BEGIN.to_string(), false, String::new(), "tag");
+        for (k, v) in &block {
+            let text = if v.is_empty() { format!("unset {k}") } else { format!("{k}=\"{v}\"") };
+            push(&mut lines, text, changed_keys.contains(&k.as_str()), option_for_key(k).to_string(), "setting");
+        }
+        push(&mut lines, CFG_END.to_string(), false, String::new(), "tag");
+    }
+    let changed = changes.len();
+    json!({ "error": "", "lines": lines, "changed": changed }).to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,6 +309,21 @@ mod tests {
         let c: HashMap<_, _> = to_changes(&m, &ed).unwrap().into_iter().collect();
         assert_eq!(c["GRUB_DEFAULT"], "saved"); assert_eq!(c["GRUB_SAVEDEFAULT"], "true"); assert_eq!(c["GRUB_CMDLINE_LINUX_DEFAULT"], "splash"); assert_eq!(c["GRUB_DISABLE_OS_PROBER"], "false");
         assert!(!c.contains_key("GRUB_TIMEOUT"));
+    }
+    #[test] fn the_file_preview_marks_the_changed_lines() {
+        let m = parse_defaults(SAMPLE);
+        let host = Host { defaults: m.clone(), entries: vec![], defaults_file: "/etc/default/grub".into(), readable: true, cfg_file: String::new(), saved_entry: String::new(), os_prober: false };
+        let mut ed = HashMap::new(); ed.insert("timeout".into(), "20".into()); ed.insert("quiet".into(), "false".into());
+        let v: Value = serde_json::from_str(&preview_json(SAMPLE, &ed, &host)).unwrap();
+        let lines = v["lines"].as_array().unwrap();
+        assert_eq!(v["changed"], 2);
+        assert!(lines.iter().any(|l| l["text"] == "GRUB_TIMEOUT=\"20\"" && l["changed"] == true && l["option"] == "timeout"));
+        assert!(lines.iter().any(|l| l["text"] == "GRUB_CMDLINE_LINUX_DEFAULT=\"splash\"" && l["changed"] == true));
+        assert!(lines.iter().any(|l| l["text"].as_str().unwrap_or("").starts_with("GRUB_DEFAULT=0") && l["changed"] == false));
+        // a wrong value is refused instead of being drawn as if it were fine
+        let mut bad = HashMap::new(); bad.insert("timeout".into(), "abc".into());
+        let v: Value = serde_json::from_str(&preview_json(SAMPLE, &bad, &host)).unwrap();
+        assert!(!v["error"].as_str().unwrap().is_empty());
     }
     #[test] fn unchanged_values_produce_no_changes_and_bad_input_is_refused() {
         let m = parse_defaults(SAMPLE);

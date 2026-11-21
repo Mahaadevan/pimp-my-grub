@@ -107,5 +107,5 @@ ColumnLayout {
             }
         }
     }
-    Label { Layout.alignment: Qt.AlignHCenter; visible: root.sd.pending === 0 && model.count === 0; color: t.muted; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; width: parent.width - 40; text: root.sd.note !== "" ? qsTr("Couldn’t load the theme list. Check your internet connection, then restart the Store tab or press “Search GitHub”.") : qsTr("No themes match. Press “Search GitHub” to look beyond the curated list."); padding: 20 }
+    Label { Layout.alignment: Qt.AlignHCenter; visible: root.sd.pending === 0 && model.count === 0; color: t.muted; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; width: parent.width - 40; text: root.sd.note !== "" ?   qsTr("Couldn’t load the theme list. Check your internet connection, then restart the Themes tab or press “Search GitHub”.") : qsTr("No themes match. Press “Search GitHub” to look beyond the curated list."); padding: 20 }
 }

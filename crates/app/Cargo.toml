@@ -1,12 +1,12 @@
 [package]
-name = "pimp-my-grub"
+name = "style-my-grub"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Native Qt 6 GRUB theme builder"
 
 [dependencies]
-pimp-my-grub-core = { path = "../core" }
+style-my-grub-core = { path = "../core" }
 cxx = "1.0.176"
 cxx-qt = "0.10"
 cxx-qt-lib = { version = "0.10", features = ["full"] }

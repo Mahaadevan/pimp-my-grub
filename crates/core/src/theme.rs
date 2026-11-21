@@ -164,6 +164,14 @@ pub fn doc_from_files(files: &BTreeMap<String, Vec<u8>>) -> Result<Doc, String> 
     let mut screen = (1920, 1080);
     if let Some(v) = globals.get("screen-size") {
         if let Some((w, h)) = unq(v).split_once(|c| c == 'x' || c == 'X') { if let (Ok(w), Ok(h)) = (w.trim().parse(), h.trim().parse()) { screen = (w, h); } }
+    } else {
+        // A theme.txt does not say which resolution it was designed for; its background picture usually does. Using that
+        // size puts the percentage positions where the author put them instead of the app's 1920x1080 guess.
+        let bg = globals.get("desktop-image").map(|v| unq(v).to_string()).unwrap_or_default();
+        if let Some(img) = files.get(&bg).and_then(|b| image::load_from_memory(b).ok()) {
+            let (w, h) = (img.width() as i32, img.height() as i32);
+            if w >= 640 && h >= 480 { screen = (w, h); }
+        }
     }
     Ok(Doc { globals, root, assets, screen })
 }

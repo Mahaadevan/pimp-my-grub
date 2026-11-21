@@ -1,6 +1,6 @@
-use pimp_my_grub_core::editor::Editor;
-use pimp_my_grub_core::store::{index_files, FileEntry, RepoRef};
-use pimp_my_grub_core::theme::*;
+use style_my_grub_core::editor::Editor;
+use style_my_grub_core::store::{index_files, FileEntry, RepoRef};
+use style_my_grub_core::theme::*;
 use std::path::Path;
 
 const SAMPLE: &str = "# c\ntitle-text: \"\"\ndesktop-color: \"#050607\"\n\n+ boot_menu {\n  id = \"__menu__\"\n  left = 50%-100\n  scrollbar = false\n}\n+ vbox {\n  left = 1\n  + label { text = \"hi there\" color = \"#fff\" }\n  + image {\n    file = \"x.png\"\n  }\n}\n";
@@ -139,7 +139,7 @@ fn zoom_ladder_and_centre() {
 
 #[test]
 fn builtin_fonts_parse_and_are_added_to_the_theme_when_chosen() {
-    use pimp_my_grub_core::{builtin_fonts, pf2};
+    use style_my_grub_core::{builtin_fonts, pf2};
     assert!(builtin_fonts::FONTS.len() >= 20);
     for f in builtin_fonts::FONTS {
         let p = pf2::parse(f.data).unwrap_or_else(|| panic!("{} does not parse", f.file));
@@ -159,7 +159,7 @@ fn builtin_fonts_parse_and_are_added_to_the_theme_when_chosen() {
 
 #[test]
 fn every_preset_can_be_added_and_rendered() {
-    use pimp_my_grub_core::preset_list;
+    use style_my_grub_core::preset_list;
     for kind in ["boot_menu", "label", "rectangle", "progress_bar", "circular_progress", "canvas"] {
         let presets = preset_list(kind);
         assert!(presets.len() >= 3, "{kind} has presets");
@@ -181,7 +181,7 @@ fn every_preset_can_be_added_and_rendered() {
 
 #[test]
 fn style_designer_makes_nine_valid_slices_and_a_menu_uses_them() {
-    use pimp_my_grub_core::styles::{render_slices, StyleSpec};
+    use style_my_grub_core::styles::{render_slices, StyleSpec};
     let spec = StyleSpec { fill: "#ff6b6b".into(), fill2: "#c0392b".into(), opacity: 90, radius: 12, border_width: 2, border: "#ffffff".into(), border_opacity: 60 };
     let s = render_slices(&spec);
     assert_eq!(s.len(), 9);
@@ -198,7 +198,7 @@ fn style_designer_makes_nine_valid_slices_and_a_menu_uses_them() {
 
 #[test]
 fn a_picture_can_be_cut_into_a_style() {
-    use pimp_my_grub_core::styles::{render_slices, slice_image, StyleSpec};
+    use style_my_grub_core::styles::{render_slices, slice_image, StyleSpec};
     let big = render_slices(&StyleSpec { radius: 20, ..Default::default() });
     let one = { let c = image::RgbaImage::from_pixel(60, 40, image::Rgba([10, 200, 90, 255])); let mut o = std::io::Cursor::new(vec![]); c.write_to(&mut o, image::ImageFormat::Png).unwrap(); o.into_inner() };
     assert_eq!(slice_image(&one, 10, 8, 10, 8).unwrap().len(), 9);
@@ -246,8 +246,59 @@ fn countdown_labels_follow_the_timeout_and_the_menu_shows_host_entries() {
 }
 
 #[test]
+fn menu_rows_are_clicked_where_they_are_drawn() {
+    // A menu in the corner whose row style has a wide west piece and 20 px of item padding, like a theme with a decorated
+    // number panel: the rows start 20 px below the menu's top edge and each is item_height + item_spacing tall.
+    let png = |w: u32, h: u32| {
+        let mut out = std::io::Cursor::new(vec![]);
+        image::RgbaImage::from_pixel(w, h, image::Rgba([200, 40, 40, 255])).write_to(&mut out, image::ImageFormat::Png).unwrap();
+        out.into_inner()
+    };
+    let mut e = Editor::default();
+    e.doc.screen = (400, 400);
+    e.doc.assets.insert("row_w.png".into(), std::sync::Arc::new(png(80, 1)));
+    e.doc.assets.insert("row_c.png".into(), std::sync::Arc::new(png(1, 1)));
+    e.add("boot_menu", &[
+        ("left", "0".into()), ("top", "0".into()), ("width", "400".into()), ("height", "400".into()),
+        ("item_height", "50".into()), ("item_spacing", "10".into()), ("item_padding", "20".into()),
+        ("item_pixmap_style", "\"row_*.png\"".into()),
+    ]);
+    e.render_live(400, 400).expect("renders");
+
+    for i in 0..5 {
+        let y = 20 + 25 + i * 60;   // padding, half a row, then one row plus its spacing
+        assert_eq!(e.entry_at(400, 400, 200.0, y as f64), Some(i), "row {i} should be clickable at its centre");
+    }
+    assert_eq!(e.entry_at(400, 400, 200.0, 5.0), None, "the padding above the first row is not a row");
+    assert_eq!(e.entry_at(400, 400, 200.0, 20.0 + 5.0 * 60.0), None, "nothing is clickable below the last row");
+}
+
+#[test]
+fn zooming_in_keeps_pictures_crisp() {
+    // A two-colour checkerboard: enlarged with smoothing it blends into in-between purples, enlarged with
+    // nearest-neighbour it stays exactly those two colours.
+    let mut img = image::RgbaImage::new(4, 4);
+    for (x, y, p) in img.enumerate_pixels_mut() {
+        *p = if (x + y) % 2 == 0 { image::Rgba([255, 0, 0, 255]) } else { image::Rgba([0, 0, 255, 255]) };
+    }
+    let mut out = std::io::Cursor::new(vec![]);
+    img.write_to(&mut out, image::ImageFormat::Png).unwrap();
+    let mut e = Editor::default();
+    e.doc.screen = (4, 4);
+    e.doc.globals.insert("desktop-image".into(), "bg.png".into());
+    e.doc.assets.insert("bg.png".into(), std::sync::Arc::new(out.into_inner()));
+    e.zoom_to(1.5, 64, 64);
+    let (px, _, _) = e.render_view(64, 64).expect("renders");
+    let allowed = [[255, 0, 0], [0, 0, 255], [0, 0, 0], [9, 9, 11], [39, 39, 42]];
+    for c in px.chunks_exact(4) {
+        let c = [c[0], c[1], c[2]];
+        assert!(allowed.contains(&c), "unexpected colour {c:?}: the picture was smoothed instead of enlarged crisply");
+    }
+}
+
+#[test]
 fn fonts_convert_to_pf2_without_grub_tools() {
-    use pimp_my_grub_core::{fontconv, pf2};
+    use style_my_grub_core::{fontconv, pf2};
     let sys = fontconv::list_system_fonts();
     // the bundled test font may not exist on every machine: use any installed one, or skip quietly
     let Some(f) = sys.iter().find(|f| f.path.ends_with(".ttf") || f.path.ends_with(".otf")) else { eprintln!("no system font installed, skipping"); return };
@@ -256,4 +307,118 @@ fn fonts_convert_to_pf2_without_grub_tools() {
     let parsed = pf2::parse(&pf).expect("our own PF2 parses");
     assert_eq!(parsed.name, format!("{} {} 24", f.family, f.style));
     assert!(fontconv::to_pf2(&data, f.index, 3, "x", "y").is_err(), "silly sizes are refused");
+}
+
+// ---------------------------------------------------------------- the three "load theme" buttons
+fn distinct_colours(px: &[u8]) -> usize {
+    let mut set = std::collections::HashSet::new();
+    for c in px.chunks_exact(4) { set.insert([c[0], c[1], c[2]]); }
+    set.len()
+}
+fn live_pixels(e: &mut Editor) -> Vec<u8> {
+    e.render_live(640, 360).map(|(px, _, _)| px.to_vec()).unwrap_or_default()
+}
+
+#[test]
+fn load_sample_theme_is_the_midnight_demo() {
+    let mut e = Editor::new();
+    e.load_sample().expect("the sample theme loads");
+    assert_eq!(e.name, "midnight");
+    for a in ["background.png", "bar_c.png", "fill_c.png", "select_c.png"] {
+        assert!(e.doc.assets.contains_key(a), "the sample theme is missing {a}");
+    }
+    assert!(e.doc.globals.get("title-text").map(|t| t.contains("Style my GRUB")).unwrap_or(false), "theme.txt was not parsed");
+    assert_eq!(e.doc.root.len(), 3, "theme.txt declares three components");
+    assert!(e.doc.root.iter().any(|c| c.ty == "boot_menu"), "no boot menu");
+    assert!(missing_assets(&e.doc).is_empty(), "missing: {:?}", missing_assets(&e.doc));
+    let (w, h) = e.doc.screen;
+    assert_eq!((w, h), (1920, 1080), "screen size should come from the background picture");
+    assert!(distinct_colours(&live_pixels(&mut e)) > 20, "the sample theme drew an empty picture");
+}
+
+#[test]
+fn load_current_theme_reads_grub_theme() {
+    // A folder laid out like a real GRUB theme folder, pointed at by GRUB_THEME=/…/theme.txt.
+    let dir = std::env::temp_dir().join(format!("pmg-current-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/midnight");
+    for f in ["theme.txt", "background.png", "bar_c.png", "fill_c.png", "select_c.png"] {
+        std::fs::copy(src.join(f), dir.join(f)).unwrap();
+    }
+    let defaults = style_my_grub_core::grubcfg::parse_defaults(&format!("GRUB_THEME=\"{}/theme.txt\"\n", dir.display()));
+    let mut e = Editor::new();
+    e.load_current(&defaults).expect("the theme GRUB uses loads");
+    assert_eq!(e.name, dir.file_name().unwrap().to_string_lossy());
+    // some systems point GRUB_THEME straight at the folder instead of its theme.txt
+    let as_dir = style_my_grub_core::grubcfg::parse_defaults(&format!("GRUB_THEME={}\n", dir.display()));
+    e.load_current(&as_dir).expect("a theme folder works too");
+    assert!(e.doc.root.iter().any(|c| c.ty == "boot_menu"));
+    assert!(e.doc.assets.contains_key("background.png"));
+    assert!(distinct_colours(&live_pixels(&mut e)) > 20, "the current theme drew an empty picture");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn load_current_theme_explains_when_grub_uses_none() {
+    let mut e = Editor::new();
+    let err = e.load_current(&style_my_grub_core::grubcfg::parse_defaults("GRUB_TIMEOUT=5\n")).unwrap_err();
+    assert!(err.contains("does not use a theme"), "unhelpful message: {err}");
+    let gone = style_my_grub_core::grubcfg::parse_defaults("GRUB_THEME=\"/boot/grub/themes/nope/theme.txt\"\n");
+    let err = e.load_current(&gone).unwrap_err();
+    assert!(err.contains("not on this computer"), "unhelpful message: {err}");
+}
+
+#[test]
+fn load_default_theme_is_grubs_plain_menu() {
+    let mut e = Editor::new();
+    e.load_classic();
+    assert_eq!(e.name, "grub-default");
+    assert_eq!(e.doc.globals.get("desktop-color").map(|s| s.as_str()), Some("\"#000000\""));
+    assert!(e.doc.globals.get("title-text").map(|t| t.contains("GNU GRUB")).unwrap_or(false));
+    assert!(e.doc.root.iter().any(|c| c.ty == "boot_menu"));
+    for part in ["nw", "n", "ne", "w", "c", "e", "sw", "s", "se"] {
+        assert!(e.doc.assets.contains_key(&format!("classic_select_{part}.png")), "missing highlight piece {part}");
+    }
+    assert!(distinct_colours(&live_pixels(&mut e)) > 3, "the plain menu drew nothing");
+}
+
+#[test]
+fn loading_a_theme_is_one_undo_step() {
+    let mut e = Editor::new();
+    e.load_sample().unwrap();
+    let (sample_name, sample_assets, sample_root) = (e.name.clone(), e.doc.assets.len(), e.doc.root.len());
+    // even the first load can be undone, back to the empty theme the app started with
+    assert!(e.can_undo());
+    e.undo();
+    assert_eq!(e.doc.root.len(), 0);
+    e.redo();
+    assert_eq!(e.name, sample_name);
+
+    e.load_classic();
+    assert_eq!(e.name, "grub-default");
+    assert!(e.can_undo(), "Load Default Theme must be undoable");
+    e.undo();
+    assert_eq!(e.name, sample_name, "undo should bring the previous theme back");
+    assert_eq!((e.doc.assets.len(), e.doc.root.len()), (sample_assets, sample_root));
+    e.redo();
+    assert_eq!(e.name, "grub-default", "redo should apply the load again");
+
+    // the same for the theme GRUB uses
+    let dir = std::env::temp_dir().join(format!("pmg-undo-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/midnight");
+    for f in ["theme.txt", "background.png", "bar_c.png", "fill_c.png", "select_c.png"] {
+        std::fs::copy(src.join(f), dir.join(f)).unwrap();
+    }
+    e.load_sample().unwrap();
+    let defaults = style_my_grub_core::grubcfg::parse_defaults(&format!("GRUB_THEME=\"{}/theme.txt\"\n", dir.display()));
+    e.load_current(&defaults).unwrap();
+    let current = e.name.clone();
+    e.undo();
+    assert_eq!(e.name, "midnight", "undo should return from the current theme to the sample");
+    e.redo();
+    assert_eq!(e.name, current);
+    let _ = std::fs::remove_dir_all(&dir);
 }

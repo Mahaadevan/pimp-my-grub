@@ -1,6 +1,6 @@
 //! Index every repo in data/catalog.json and write the themes back, so the app opens with a full store and no API calls.
-//!   GITHUB_TOKEN=... cargo run -p pimp-my-grub-core --example build_catalog
-use pimp_my_grub_core::store::{catalog, index_repo};
+//!   GITHUB_TOKEN=... cargo run -p style-my-grub-core --example build_catalog
+use style_my_grub_core::store::{catalog, index_repo};
 fn main() {
     let (repos, _) = catalog();
     let (mut kept, mut themes) = (vec![], vec![]);

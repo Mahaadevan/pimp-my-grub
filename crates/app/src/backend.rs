@@ -2,11 +2,10 @@
 //! which keeps the bridge small. Long jobs (network, pkexec) run on worker threads and publish JSON properties.
 use cxx_qt::{CxxQtThread, Threading};
 use cxx_qt_lib::QString;
-use pimp_my_grub_core::editor::Editor;
-use pimp_my_grub_core::installer::{self, Report};
-use pimp_my_grub_core::{fontconv, grubcfg};
-use pimp_my_grub_core::theme::q;
-use pimp_my_grub_core::store::{self, RepoRef, StoreTheme};
+use style_my_grub_core::editor::Editor;
+use style_my_grub_core::installer::{self, Report};
+use style_my_grub_core::{fontconv, grubcfg};
+use style_my_grub_core::store::{self, RepoRef, StoreTheme};
 use serde_json::json;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
@@ -98,7 +97,7 @@ fn parse_colour(out: &str) -> Option<String> {
 /// Ok(Some(value)) chosen, Ok(None) cancelled, Err(()) no usable system chooser (caller falls back to Qt's dialog).
 fn system_pick(kind: &str, title: &str, filter: &str, current: &str) -> Result<Option<String>, ()> {
     use std::process::Command;
-    if std::env::var("PIMPMYGRUB_NATIVE_DIALOGS").map(|v| v == "0").unwrap_or(false) { return Err(()); }
+    if std::env::var("STYLEMYGRUB_NATIVE_DIALOGS").map(|v| v == "0").unwrap_or(false) { return Err(()); }
     let kde = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().to_lowercase().contains("kde");
     let order: [&str; 2] = if kde { ["kdialog", "zenity"] } else { ["zenity", "kdialog"] };
     let start = { let l = lock(&LAST_DIR).clone(); if l.is_empty() { std::env::var("HOME").unwrap_or_else(|_| "/".into()) } else { l } };
@@ -144,7 +143,7 @@ fn system_pick(kind: &str, title: &str, filter: &str, current: &str) -> Result<O
 fn settings_path() -> PathBuf {
     let base = std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).filter(|p| p.is_absolute())
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config"))).unwrap_or_else(|| PathBuf::from("/tmp"));
-    base.join("pimp-my-grub").join("settings.json")
+    base.join("style-my-grub").join("settings.json")
 }
 fn read_settings() -> serde_json::Map<String, serde_json::Value> {
     std::fs::read_to_string(settings_path()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
@@ -341,10 +340,10 @@ fn sys_fonts_json() -> String {
 /// show defaults instead of this computer's real values. This asks the privileged helper (the same polkit action that
 /// checks its password once) to copy the two files into a private temporary folder, then parses them with the normal code.
 /// Read-only: if the person cancels the password prompt, nothing happens and the page keeps showing what it had.
-fn read_host_elevated() -> String {
-    let dir = std::env::temp_dir().join(format!("pimp-my-grub-read-{}", std::process::id()));
+fn host_snapshot() -> Result<grubcfg::Host, String> {
+    let dir = std::env::temp_dir().join(format!("style-my-grub-read-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    if std::fs::create_dir_all(&dir).is_err() { return "ERR:Could not create a temporary folder.".into(); }
+    if std::fs::create_dir_all(&dir).is_err() { return Err("Could not create a temporary folder.".into()); }
     let out = match installer::run_helper("snapshot", &[dir.to_string_lossy().into_owned()], &mut |_| {}) {
         Ok((0, _)) if dir.join("default-grub").is_file() && dir.join("grub.cfg").is_file() => {
             let mut host = grubcfg::read_host_with(Some(&dir.join("default-grub")), Some(&dir.join("grub.cfg")));
@@ -354,15 +353,22 @@ fn read_host_elevated() -> String {
             let real = |key: &str| source.lines().find_map(|l| l.strip_prefix(key)).map(|v| v.trim_start_matches('=').to_string());
             if let Some(p) = real("DEFAULTS") { host.defaults_file = p; }
             host.cfg_file = real("CFG").unwrap_or(host.cfg_file);
-            grubcfg::options_json(&host).to_string()
+            Ok(host)
         }
-        Ok((126, _)) => "ERR:Authentication was cancelled, so the GRUB files stay unread.".into(),
-        Ok((127, _)) => "ERR:Could not start pkexec. Install polkit to read the GRUB files as administrator.".into(),
-        Ok((_, rep)) => format!("ERR:{}", rep.fatal.unwrap_or_else(|| "The helper could not read the GRUB files.".into())),
-        Err(e) => format!("ERR:{e}"),
+        Ok((126, _)) => Err("Authentication was cancelled, so the GRUB files stay unread.".into()),
+        Ok((127, _)) => Err("Could not start pkexec. Install polkit to read the GRUB files as administrator.".into()),
+        Ok((_, rep)) => Err(rep.fatal.unwrap_or_else(|| "The helper could not read the GRUB files.".into())),
+        Err(e) => Err(e),
     };
     let _ = std::fs::remove_dir_all(&dir);
     out
+}
+
+fn read_host_elevated() -> String {
+    match host_snapshot() {
+        Ok(h) => grubcfg::options_json(&h).to_string(),
+        Err(e) => format!("ERR:{e}"),
+    }
 }
 
 // ------------------------------------------------------------------ the QObject
@@ -407,7 +413,7 @@ impl qobject::Backend {
                 mutated = false;
                 let mut it = a.split('\u{1}');
                 let (kind, title, filter, current) = (it.next().unwrap_or("file").to_string(), it.next().unwrap_or("").to_string(), it.next().unwrap_or("").to_string(), it.next().unwrap_or("").to_string());
-                let usable = !std::env::var("PIMPMYGRUB_NATIVE_DIALOGS").map(|v| v == "0").unwrap_or(false) && (find_tool("zenity").is_some() || find_tool("kdialog").is_some());
+                let usable = !std::env::var("STYLEMYGRUB_NATIVE_DIALOGS").map(|v| v == "0").unwrap_or(false) && (find_tool("zenity").is_some() || find_tool("kdialog").is_some());
                 if usable {
                     let tok = b.clone();
                     std::thread::spawn(move || {
@@ -450,14 +456,27 @@ impl qobject::Backend {
             // the same values, read with administrator rights when this computer keeps the GRUB files root-only
             "hostInfoElevated" => { mutated = false; read_host_elevated() }
             // GRUB's own look with no theme at all: a starting point like the original GRUB Customizer's reset
-            "loadDefault" => {
-                let mut e = ed();
-                e.reset();
-                e.set_global("desktop-color", &q("#000000"));
-                e.set_global("title-text", &q("GNU GRUB  version 2.12"));
-                e.add("boot_menu", &[]);
-                e.name = "grub-default".into();
-                String::new()
+            "loadDefault" => { ed().load_classic(); String::new() }
+            // the demo theme that ships with the app (examples/midnight)
+            "loadSample" => match ed().load_sample() { Ok(()) => String::new(), Err(e) => format!("ERR:{e}") },
+            // the theme GRUB uses on this computer right now; only read
+            "loadCurrent" => {
+                let mut host = grubcfg::read_host();
+                if !host.readable { if let Ok(h) = host_snapshot() { host = h; } }
+                match ed().load_current(&host.defaults) { Ok(()) => String::new(), Err(e) => format!("ERR:{e}") }
+            }
+            // /etc/default/grub as it will look, with the lines this change touches (for the editor next to the options)
+            "cfgPreview" => {
+                mutated = false;
+                let text = std::fs::read_to_string(grubcfg::defaults_path()).unwrap_or_default();
+                let edits: HashMap<String, String> = serde_json::from_str(&a).unwrap_or_default();
+                grubcfg::preview_json(&text, &edits, &grubcfg::read_host())
+            }
+            // a click on a row of the full-screen preview: a = "x,y,width,height"
+            "entryAt" => {
+                mutated = false;
+                let v: Vec<f64> = a.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                if v.len() == 4 { ed().entry_at(v[2] as u32, v[3] as u32, v[0], v[1]).map(|i| i.to_string()).unwrap_or_default() } else { String::new() }
             }
             "cfgPlan" => { mutated = false; cfg_plan(&t, a); String::new() }
             "cfgApply" => {
@@ -483,7 +502,7 @@ impl qobject::Backend {
                 let v: serde_json::Value = serde_json::from_str(&b).unwrap_or_default();
                 let g = |k: &str, d: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or(d).to_string();
                 let n = |k: &str, d: u32| v.get(k).and_then(|x| x.as_u64()).unwrap_or(d as u64) as u32;
-                let spec = pimp_my_grub_core::styles::StyleSpec { fill: g("fill", "#ff6b6b"), fill2: g("fill2", ""), opacity: n("opacity", 100).min(100) as u8, radius: n("radius", 8).min(96), border_width: n("border_width", 0).min(32), border: g("border", "#ffffff"), border_opacity: n("border_opacity", 100).min(100) as u8 };
+                let spec = style_my_grub_core::styles::StyleSpec { fill: g("fill", "#ff6b6b"), fill2: g("fill2", ""), opacity: n("opacity", 100).min(100) as u8, radius: n("radius", 8).min(96), border_width: n("border_width", 0).min(32), border: g("border", "#ffffff"), border_opacity: n("border_opacity", 100).min(100) as u8 };
                 match (a.parse::<u64>(), g("key", "").as_str()) {
                     (Ok(u), k) if !k.is_empty() => ed().design_style(u, k, &spec),
                     (Err(_), k) if !k.is_empty() => { let mut e = ed(); let pat = e.new_style(&k.replace('-', "_"), &spec); e.set_global(k, &format!("\"{pat}\"")); pat }
@@ -509,7 +528,7 @@ impl qobject::Backend {
                 let (path, family, style) = (v.get("path").and_then(|x| x.as_str()).unwrap_or(""), v.get("family").and_then(|x| x.as_str()).unwrap_or("Font"), v.get("style").and_then(|x| x.as_str()).unwrap_or("Regular"));
                 let index = v.get("index").and_then(|x| x.as_u64()).unwrap_or(0) as u32;
                 match std::fs::read(path).map_err(|e| e.to_string()).and_then(|d| fontconv::to_pf2(&d, index, size, family, style)) {
-                    Ok(pf2) => { let name = pimp_my_grub_core::pf2::read_name(&pf2); ed().add_asset(&format!("{}-{size}.pf2", safe_asset_name(&format!("{family}-{style}"))), pf2); name }
+                    Ok(pf2) => { let name = style_my_grub_core::pf2::read_name(&pf2); ed().add_asset(&format!("{}-{size}.pf2", safe_asset_name(&format!("{family}-{style}"))), pf2); name }
                     Err(e) => format!("ERR:{e}"),
                 }
             }
@@ -528,7 +547,7 @@ impl qobject::Backend {
                 let size: u32 = b.parse().unwrap_or(24);
                 match std::fs::read(&p).map_err(|e| e.to_string()).and_then(|ttf| fontconv::to_pf2_named_by_font(&ttf, size, &p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Font".into())).or_else(|_| installer::convert_font(&ttf, size))) {
                     Ok(pf2) => {
-                        let name = pimp_my_grub_core::pf2::read_name(&pf2);
+                        let name = style_my_grub_core::pf2::read_name(&pf2);
                         let stem = p.file_stem().map(|s| safe_asset_name(&s.to_string_lossy())).unwrap_or_else(|| "font".into());
                         ed().add_asset(&format!("{stem}-{size}.pf2"), pf2);
                         name
