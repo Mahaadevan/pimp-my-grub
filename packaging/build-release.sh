@@ -25,12 +25,12 @@ for w in $WANT; do
       T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
       mkdir -p "$T/SOURCES"
       progress_init 2
-      step "Creating source tarball" git archive --format=tar.gz --prefix="pimp-my-grub-$VER/" -o "$T/SOURCES/pimp-my-grub-$VER.tar.gz" HEAD
-      step "Building the rpm (compiles inside rpmbuild, takes a while)" rpmbuild -ba packaging/pimp-my-grub.spec --define "_topdir $T"
+      step "Creating source tarball" git archive --format=tar.gz --prefix="style-my-grub-$VER/" -o "$T/SOURCES/style-my-grub-$VER.tar.gz" HEAD
+      step "Building the rpm (compiles inside rpmbuild, takes a while)" rpmbuild -ba packaging/style-my-grub.spec --define "_topdir $T"
       cp "$T"/RPMS/*/*.rpm "$T"/SRPMS/*.rpm dist/ ;;
   esac
 done
 say ""
 say "== Done. Release files:"
 for f in dist/*; do [ -f "$f" ] && report_file "$f"; done
-report_file target/release/pimp-my-grub
+report_file target/release/style-my-grub

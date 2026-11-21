@@ -16,7 +16,7 @@ progress_init 2
 STEP_HINT="Download failed: check your internet connection, or put appimagetool-$ARCH.AppImage into build/tools/ yourself."
 step "Downloading appimagetool" sh -c "[ -f '$TOOLS/appimagetool-$ARCH.AppImage' ] || { curl -fsSL --retry 3 -o '$TOOLS/appimagetool.part' 'https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$ARCH.AppImage' && mv '$TOOLS/appimagetool.part' '$TOOLS/appimagetool-$ARCH.AppImage' && chmod +x '$TOOLS/appimagetool-$ARCH.AppImage'; }"
 STEP_HINT=
-OUTF="$HERE/build/pimp-my-grub-$VER-$ARCH.AppImage"
+OUTF="$HERE/build/style-my-grub-$VER-$ARCH.AppImage"
 rm -f "$OUTF"
 step "Packing the AppImage" env APPIMAGE_EXTRACT_AND_RUN=1 ARCH="$ARCH" "$TOOLS/appimagetool-$ARCH.AppImage" --no-appstream "$APPDIR" "$OUTF"
 need=$(cat "$APPDIR/glibc-required.txt" 2>/dev/null || echo "?")

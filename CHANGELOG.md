@@ -1,10 +1,80 @@
 # Changelog
 
+## 0.7.0
+- **Clearer tab names, and the boot entry list in both layouts.** The modern layout's tabs are now *Appearance* (was
+  *Editor*), *General*, *List Config* and *Themes* (the store). The read-only list configuration tab moved out of the classic
+  layout into a panel both layouts share, so the entries GRUB lists on this computer are one tab away whichever layout is on.
+- **One File menu.** *New*, *Open* (theme folder or zip) and *Export* are grouped under a single **File…** button in the
+  toolbar, and the install button now reads *Install*.
+- **New and Open warn before they throw the theme away.** Neither can be undone, so both ask first: the confirmation names
+  the theme that will be lost and suggests exporting it first, and its confirm button says *Start new theme* or
+  *Choose a theme…* instead of *OK*.
+- **The Appearance panels are resizable.** Drag the thin handle between the layers list, the canvas and the inspector; the
+  canvas keeps the remaining width. The handle is now purely visual (the old hover handler hid the drag from the SplitView,
+  so dragging did nothing), and the same split separates the settings list from the file view on *General* and the preview
+  from the inspector on the classic *Appearance settings* tab. The toolbar also drops the theme-name field, then the wordmark,
+  on windows too narrow for all of it, so the window can now be as small as 900×600.
+- **Zooming in is crisp again.** The editor used to enlarge the theme with a smoothing pass (glyphs resampled with a cubic
+  filter, pictures with bilinear), which turned text and backgrounds into a grey smear at 2×. Magnification now copies
+  pixels as they are, so a zoomed theme looks like a magnified GRUB screen with hard, square pixels; zooming *out* still
+  averages, which is what keeps a shrunk 1080p theme from shimmering.
+- **The list configuration tab is read-only, with a warning.** The entries come from `grub.cfg`, which GRUB
+  regenerates from `/etc/default/grub` and `/etc/grub.d`; editing it by hand is lost at the next kernel update and a mistake
+  can leave the computer unable to boot. The tab says so in a standing warning, no longer offers *Make default* in the list
+  (the default entry is an option on the General tab, General settings in the classic layout, reviewed and backed up like
+  any other), and when `grub.cfg` is root-only
+  a **Read with administrator rights…** button fetches a copy through the helper (one polkit password, nothing written).
+  Starting the app with `sudo` reads the files directly.
+- **The status bar lost its decoration.** The green dot, *Ready* and *Live preview active* are gone; the bar now only carries
+  what changes: the theme name, “GRUB theme” and the version.
+- **The app is now Style My GRUB** (it was *Pimp My GRUB*), and the name changed in the places you could see *and* the ones
+  you could not: window, header, About text, desktop entry, AppStream data, polkit prompt and the launcher's error dialogs,
+  plus the binary (`style-my-grub`), the helper (`/usr/libexec/style-my-grub/style-my-grub-helper`), the packages
+  (`style-my-grub_<version>_amd64.deb`, `style-my-grub-<version>-x86_64.AppImage`), the settings and cache folders
+  (`~/.config/style-my-grub`, `~/.cache/style-my-grub`), the state folder (`/var/lib/style-my-grub`) and the `STYLEMYGRUB_*`
+  environment variables. The managed block written into `/etc/default/grub` is tagged `style-my-grub` too, so **remove a
+  previous install before upgrading** — otherwise the old block is left behind and the old backups are not found.
+- **The icon and name now appear on KDE/GNOME Wayland.** The packages only bundled Qt's X11 platform plugin, so the app
+  silently ran through XWayland, where the desktop has no application ID to look the icon and name up by (Wayland's merged
+  `libqwayland.so` no longer matches the old plugin names). The bundle now carries the Wayland plugin and its EGL client
+  integration, so the window carries the `dev.stylemygrub.StyleMyGrub` application ID the desktop entry is found by.
+- **The window icon is the app's own again.** The icon was installed as `style-my-grub.png`, and KDE's icon lookup retries a
+  name without its last `-`-separated word when the theme has no such entry; the theme's own `style` icon won that race, so
+  the app showed a theme-preferences glyph. The icon is now installed under the application ID
+  (`dev.stylemygrub.StyleMyGrub.png`), which no themed icon can shadow, and the desktop entry and polkit prompt use it.
+- **Upgrading from the old name no longer leaves a stale entry.** The `.deb` removes the pre-rename desktop entry, icons,
+  AppStream data and polkit action on install and upgrade, so the menu shows one *Style My GRUB* entry instead of an old
+  *Pimp My GRUB* one next to it. Your themes and settings are untouched.
+- **Sharp zooming in the editor.** Zooming in used to enlarge the 1920×1080 picture the preview is drawn into, so text turned
+  into blocks and edges into staircases. The theme is now drawn again at the size it is shown (up to twice the resolution),
+  so the full-screen preview is no longer a scaled-up raster.
+- **Boot menus are laid out the way GRUB lays them out.** The row area is inset by the menu style's border and by
+  `item_padding`, and the entry text starts after the row style's west piece plus `icon_width + item_icon_space` — so a theme
+  whose highlight is decorated (Sidonia's 150 px number panel, for instance) no longer has its text printed over that
+  artwork. Verified against the theme's own GRUB screenshot: the rows, the highlight and the text column now land on the same
+  pixels. The scroll bar also follows `scrollbar_slice`, and a style that only ships a centre piece still counts as a style.
+- **The three load buttons are one undo step each**, as their tooltips promise: the previous theme — pictures included —
+  comes back with Undo, and Redo reopens the loaded one.
+- **The simulation matches GRUB more closely.** Menu rows follow GRUB's own defaults (a row is as tall as its text unless
+  `item_height` says otherwise, and `item_padding` / `item_spacing` / the icon size / `item_icon_space` default to what GRUB
+  uses instead of made-up values), `desktop-image-scale-method: padding` (fit inside, keep the aspect ratio) is understood,
+  and a theme without an explicit size is previewed at its background picture's resolution, so percentage positions land
+  where the author put them. The full-screen preview now also takes the mouse: click a row to select it, Space pauses the
+  countdown and R restarts it.
+- **Three ways to start a theme** in the editor toolbar: *Load Sample Theme* opens **Midnight**, the finished demo theme that
+  ships with the app; *Load Current Theme* opens the theme GRUB uses on this computer (`GRUB_THEME` in `/etc/default/grub`, read
+  only — the administrator password is asked only if that file is root-only); *Load Default Theme* is GRUB's own plain look
+  (black screen, built-in font, inverted selected row, version line), which replaces the old empty-canvas approximation.
+- **GRUB settings, side by side with the file.** The settings page now shows `/etc/default/grub` as the helper will leave it
+  beside the options: the lines this change writes are highlighted, the lines it overrides are marked, and clicking a line
+  points at the setting that owns it. It is read-only, so nothing can be typed that the helper would refuse, and refused
+  values are shown as an error instead of a change.
+
 ## 0.6.4
 - **Wayland and X11 use the GPU again.** 0.6.2/0.6.3 forced Qt Quick's software renderer to survive machines without a working
   graphics driver. That is not how the app should draw on a normal desktop: on Wayland it meant a software-drawn window scaled by
   the compositor, no VSync and blurry output on HiDPI screens. Qt's own graphics stack (EGL/OpenGL, Vulkan where Qt picks it) is
-  used again on both display servers; `PIMPMYGRUB_SOFTWARE=1` (or `QT_QUICK_BACKEND=software`) still forces the CPU path, and the
+  used again on both display servers; `STYLEMYGRUB_SOFTWARE=1` (or `QT_QUICK_BACKEND=software`) still forces the CPU path, and the
   launcher's automatic safe mode (software drawing over X11) is unchanged.
 - **A square interface.** Every rounded corner is gone, not just on buttons: dialogs, menus, fields, combo boxes, sliders,
   scrollbars, tabs, tab bar, stepper, zoom bar, preview frames, colour swatches, badges, the loading spinner and the status dots are
@@ -14,7 +84,7 @@
 - **Checkboxes instead of toggle switches.** The GRUB settings and the Style designer's gradient option use the checkbox component;
   `AppSwitch.qml` and the switch code in it are removed (the `/etc/default/grub` values it edits are unchanged).
 - **Leftovers removed.** `antialiasing: true` was only ever there to smooth rounded corners; it is gone from the 80 places that
-  still asked for it on plain rectangles. The header is just the name (*Pimp My GRUB*, no mark beside it), and the theme-name field
+  still asked for it on plain rectangles. The header is just the name (*Style My GRUB*, no mark beside it), and the theme-name field
   shrinks instead of pushing the right-hand icons out of the window on a narrow screen. In the Store the card grid reserves room for
   the scroll bar, so the last column is no longer cut off at the window edge.
 - **Clearer wording.** The Store buttons say *Edit Theme* and *Install Theme*, and the classic layout's *Save…* / *Reload* lost
@@ -39,7 +109,7 @@
   `Failed to load client buffer integration: "wayland-egl"` and `Failed to create RHI (backend 2)` and aborted. The folder is now
   bundled, and the build fails if Wayland support is bundled without it.
 - **Changed: the software renderer is the default.** The interface is light and the theme preview is already drawn by the CPU, so Qt Quick
-  now uses its software renderer unless you set `PIMPMYGRUB_GPU=1`. It needs no GPU driver, so VMs, remote sessions, unusual drivers and
+  now uses its software renderer unless you set `STYLEMYGRUB_GPU=1`. It needs no GPU driver, so VMs, remote sessions, unusual drivers and
   Wayland without working EGL can no longer take the program down at start.
 - The launcher only treats real crash signals (segfault, abort, illegal instruction, bus error, ...) as crashes. Closing the program with
   Ctrl+C or a task manager during the first seconds no longer restarts it.
@@ -52,14 +122,14 @@
   system's is older than what the app needs (it records the level it needs).
 - **New: automatic safe mode.** If the app crashes, or reports a graphics / window-system error, within its first seconds, the launcher
   starts it again with software drawing and X11 instead of Wayland. When that works it remembers the choice
-  (`~/.cache/pimp-my-grub/safe-mode`; delete the file to try normal mode again, or set `PIMPMYGRUB_SAFE=1` / `0`).
+  (`~/.cache/style-my-grub/safe-mode`; delete the file to try normal mode again, or set `STYLEMYGRUB_SAFE=1` / `0`).
   If even that fails, the error dialog now lists which files to send.
 - **Fix:** an internal error can no longer take the whole program down. Every call into the engine and the canvas is guarded; a Rust
-  panic is written to `~/.cache/pimp-my-grub/crash.log` (with a backtrace) and shown as a message instead of aborting Qt.
-- `PIMPMYGRUB_PRINT_ENV=1 pimp-my-grub` prints the library path the launcher chose, for diagnosis.
+  panic is written to `~/.cache/style-my-grub/crash.log` (with a backtrace) and shown as a message instead of aborting Qt.
+- `STYLEMYGRUB_PRINT_ENV=1 style-my-grub` prints the library path the launcher chose, for diagnosis.
 
 ## 0.6.0
-- **Renamed** "Pimp my grub" to **Pimp my GRUB**. The default accent colour is now coral (#ff6b6b); icons were recoloured to match.
+- **Renamed** the app to one consistent spelling of its name (it has since become **Style My GRUB**). The default accent colour is now coral (#ff6b6b); icons were recoloured to match.
 - **Timeout** is now in seconds and defaults to 5 (the stray "%" is gone). The preview's countdown labels (`T-%02d`, `%d`) and the
   `@TIMEOUT_NOTIFICATION_*@` texts follow it, and the progress bar drains accordingly.
 - **GRUB settings** (new tab): everything that lives in `/etc/default/grub`, read from this computer and shown as switches,
@@ -90,7 +160,7 @@
   bare symlink to the launcher, so the system's Qt (a different version) was loaded instead. The app now lives in `usr/bin`
   with a relative library path, and the launcher points the loader, the Qt plugins and the QML modules at the bundled copies
   and ignores the system's.
-- **Changed:** the `.deb` is now self-contained as well: it installs the app with its own Qt 6 into `/usr/lib/pimp-my-grub`
+- **Changed:** the `.deb` is now self-contained as well: it installs the app with its own Qt 6 into `/usr/lib/style-my-grub`
   and no longer depends on the distribution's `libqt6*` / `qml6-module-*` packages (and no longer breaks when those are another
   version). Its `Depends` list is generated from the libraries it really loads, with `t64` alternatives for older/newer Debian.
   The `.rpm` and Arch packages still use the distribution's own Qt (they are built on that distribution).
@@ -109,12 +179,12 @@
 
 ## 0.4.0
 - **New:** change the app's colour. The palette button in the header opens *Appearance*: eight presets, a hex field and the
-  system colour chooser. The choice is saved to `~/.config/pimp-my-grub/settings.json` and applied to buttons, highlights, the
+  system colour chooser. The choice is saved to `~/.config/style-my-grub/settings.json` and applied to buttons, highlights, the
   logo and the zoom bar. It only affects the app, not the GRUB theme being built.
-- **New:** a GitHub button in the header opens https://github.com/Mahaadevan/pimp-my-grub.
+- **New:** a GitHub button in the header opens https://github.com/Mahaadevan/style-my-grub.
 - **Changed:** Open, Export, Add font, Upload image and the colour pickers now start the system's own chooser (zenity on
   GTK/GNOME/other desktops, kdialog on KDE) and only fall back to Qt's built-in dialog when neither is installed or
-  `PIMPMYGRUB_NATIVE_DIALOGS=0` is set. The chooser remembers the last folder. Packages now recommend zenity or kdialog.
+  `STYLEMYGRUB_NATIVE_DIALOGS=0` is set. The chooser remembers the last folder. Packages now recommend zenity or kdialog.
 - **Fix:** store thumbnails no longer poke square corners out of the rounded card or hide its top border (the hover outline
   was cut off over the image); the same fix is applied to the detail-view preview, and the "i" badge no longer has colour fringes.
 
@@ -141,7 +211,7 @@
 - **New:** the editor's Timeout preview is a typed number (0-100 %; Up/Down or the mouse wheel step by 5) instead of a slider.
 - **New:** native file, folder and colour dialogs. The app now selects an XDG-portal or GTK3 platform theme when one is
   available, so Open/Export/Add font use your desktop's own chooser. Set `QT_QPA_PLATFORMTHEME` to choose another one, or
-  `PIMPMYGRUB_NATIVE_DIALOGS=0` to keep Qt's built-in dialogs.
+  `STYLEMYGRUB_NATIVE_DIALOGS=0` to keep Qt's built-in dialogs.
 - **Fix:** store cards with a resolution dropdown overflowed their frame (Edit/Install spilled over the border) and had uneven
   heights. Cards are now taller, fixed-layout and aligned; single-resolution themes show their resolution as text.
 
@@ -167,7 +237,7 @@
 
 ## 0.2.0
 - Native rewrite: Qt 6 + Rust (no webview). Core engine in `crates/core`, Qt Quick shell in `crates/app`.
-- Renamed to **Pimp my grub**.
+- Renamed the app (it has since become **Style My GRUB**).
 - Software preview renderer with real PF2 fonts and 9-slice styles; editor with layers, snapping, undo/redo.
 - Store with search, sorting, thumbnails, GitHub topic search.
 - Reversible installer: backup, marked block, validated `grub.cfg` swap, automatic restore, polkit action.

@@ -1,5 +1,5 @@
-# Midnight: a small demo theme made with Pimp my GRUB (open it with `pimp-my-grub examples/midnight`).
-title-text: "Pimp my GRUB"
+# Midnight: a small demo theme made with Style my GRUB (open it with `style-my-grub examples/midnight`).
+title-text: "Style my GRUB"
 title-color: "#e6e9ef"
 desktop-color: "#0a0e22"
 desktop-image: "background.png"

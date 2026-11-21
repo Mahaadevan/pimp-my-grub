@@ -1,6 +1,6 @@
-<p align="center"><img src="docs/logo.png" width="96" alt="Pimp my GRUB icon"></p>
+<p align="center"><img src="docs/logo.png" width="96" alt="Style My GRUB icon"></p>
 
-# Pimp my GRUB
+# Style My GRUB
 
 **A native Linux app to design GRUB themes visually, browse a theme store, and install a theme safely.**
 Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to you first and can be undone.
@@ -9,9 +9,9 @@ Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to yo
 
 ![Install confirmation: exact files and diff, backup, consent](docs/screenshots/install-confirm.png)
 
-| GRUB settings | Live preview (full screen) |
+| General | Live preview (full screen) |
 |---|---|
-| ![GRUB settings: checkboxes, help and warnings](docs/screenshots/settings.png) | ![Live preview with this computer's boot entries](docs/screenshots/live-preview.png) |
+| ![General: checkboxes, help and warnings](docs/screenshots/settings.png) | ![Live preview with this computer's boot entries](docs/screenshots/live-preview.png) |
 
 | Classic layout | Style designer |
 |---|---|
@@ -25,7 +25,7 @@ Qt 6 + Rust. No webview, no Electron. Every change to your system is shown to yo
 
 *The store screenshots use a small offline demo catalog (made-up themes) so they can be reproduced without a network connection.*
 
-> **Status: early (v0.6.3).** The editor, store UI and installer are working and tested in a sandbox, but the real
+> **Status: early (v0.7.0).** The editor, store UI and installer are working and tested in a sandbox, but the real
 > apply-to-`/boot` path has **not** been exercised on real hardware yet. Try it in a VM first. See [Status](#status-what-is-and-isnt-verified).
 
 ## Why this exists
@@ -64,6 +64,17 @@ HyperFluent, CyberGRUB-2077, Sidonia). Themes stay in their own repositories und
   Percent-based positions such as `50%-120` survive dragging. Components: boot menu, label, image, rectangle, progress bar,
   circular progress, groups. Every numeric field has up/down arrows (click, hold to repeat, Shift for bigger steps), and the
   countdown preview (**Timeout**, in seconds, default 5) feeds countdown labels, progress bars and spinners.
+  Zooming re-draws the theme at the zoomed size and enlarges it without any smoothing filter, so pictures and text stay
+  crisp — a pixel of the real 1:1 theme simply becomes a bigger square, as if you were magnifying the actual GRUB screen.
+- **Three starting points:** *Load Sample Theme* opens **Midnight**, the finished demo theme that ships with the app;
+  *Load Current Theme* opens whatever GRUB uses on this computer right now (`GRUB_THEME`); *Load Default Theme* goes back to
+  GRUB's own plain look (black screen, built-in font, inverted selected row). All three are one undo step.
+- **File menu:** *New*, *Open* (folder or zip) and *Export* are grouped under one **File…** button in the toolbar.
+- **New and Open ask first:** both replace the open theme and the editor cannot undo that, so a confirmation names the theme
+  that will be lost (and suggests exporting it first). Its button says *Start new theme* or *Choose a theme…*, not *OK*.
+- **Resizable panels:** on the Appearance tab, drag the thin handle between the layers list, the canvas and the inspector;
+  the same handle separates the settings list from the file view on General, and the preview from the inspector in the
+  classic *Appearance settings* tab. The middle panel takes the remaining width, so the editor still works on a smaller screen.
 - **Right-click menu** (canvas and layers list), like a presentation program: cut / copy / paste / duplicate / delete, arrange (bring
   to front, send to back ...), align to the container, group / ungroup, lock, hide, create a style, add. Ctrl+C / X / V / G work too.
 - **Presets** for every kind of item, behind the ▾ on each add button: 6 menus (centered list, sidebar, boxed, minimal, gradient,
@@ -74,32 +85,43 @@ HyperFluent, CyberGRUB-2077, Sidonia). Themes stay in their own repositories und
   themes are built from, and it was the missing piece for creating complex themes from scratch.
 - **More of `theme.txt`:** scrollbar track/thumb/padding, `highlight_overlay`, `id` (for `__timeout__` countdown items), `message-*`,
   `terminal-*`, image alignment, icons from `icons/`. Menus scroll when there are more entries than fit.
-- **GRUB settings** (own tab): the options of `/etc/default/grub` read from this computer and shown as checkboxes, numbers and choices:
+- **List Config** (own tab): the boot entries GRUB lists on this computer, read from `grub.cfg` (or with one polkit
+  password when only the administrator may read it). It sits between General and Themes in the modern layout,
+  and is the first tab of the classic one. **Read-only on purpose**, behind a standing warning: hand-editing `grub.cfg` is
+  unsafe, since GRUB regenerates that file and a mistake in it can stop the computer from booting. The default entry is
+  changed on the General tab, with a review and a backup.
+- **General** (own tab): the options of `/etc/default/grub` read from this computer and shown as checkboxes, numbers and choices:
   wait time, menu style, **boot the previously selected entry**, default entry, detect other operating systems, advanced-options
   submenu, recovery entries, quiet / splash, kernel options, distributor name, video mode, failed-boot wait. Each has help text,
   and a ⚠ warning where a wrong value can stop GRUB or the system from working. Changes are reviewed (exact diff), backed up,
   validated and can be undone. Most systems let only root read `/etc/default/grub` and `grub.cfg`; *Read as administrator…* then asks
   polkit for one password and reads them through the helper (it only copies them to a temporary folder). The UI itself never runs as root.
+  Next to the options, the file itself is shown as it will look after the change: every line the change writes is highlighted,
+  the lines it overrides are marked, and clicking a line points at the setting that owns it (read-only — the options are edited
+  on the left, so nothing can be written that the helper would refuse).
 - **Live preview** (F5, full screen): the finished theme with this computer's boot entries and timeout, a running countdown, keyboard
-  control (↑ ↓ Home End, Enter simulated, e, c, F1, Esc). Nothing is booted.
-- **Classic layout** (button next to GitHub): list configuration, general settings and appearance settings, arranged like the
-  original GRUB Customizer.
+  control (↑ ↓ Home End, Enter simulated, e, c, Space pauses, R restarts the countdown, F1, Esc) and the mouse (click a row).
+  It is drawn at the size it is shown, up to the theme's own resolution, so what you see is what GRUB draws — fonts, nine-piece
+  styles, entry icons, the countdown items and the scroll bar. Nothing is booted.
+- **Classic layout** (button next to GitHub): *List Config*, *General settings* and *Appearance settings*, arranged like the
+  original GRUB Customizer. The *List Config* tab is the same read-only panel as in the modern layout; general settings
+  are the same `/etc/default/grub` panel as the General tab, where the default entry is changed with a review and a backup.
 - **Tooltips** on every button, property and setting.
 - **Fonts:** the app ships its own interface fonts (it looks right even on a system with no fonts installed), 24 ready-made GRUB fonts
   (Inter, JetBrains Mono, DejaVu Sans; regular/bold; 16-48 px) and can turn **any font installed on the computer** (or a .ttf/.otf
   file) into a GRUB font itself. No `grub-mkfont` / GRUB install is needed.
 - **Accurate preview:** real GRUB `.pf2` fonts are drawn glyph by glyph (so text looks like it will at boot), 9-slice
   `select_*.png` styles, icons and progress bars. TTF/OTF → PF2 conversion uses GRUB's own `grub-mkfont`.
-- **Store:** search, sort by popularity, cards with lazily loaded thumbnails and a resolution picker, *Edit Theme* or *Install theme* in one click,
+- **Themes** (the store): search, sort by popularity, cards with lazily loaded thumbnails and a resolution picker, *Edit Theme* or *Install Theme* in one click,
   plus live search of GitHub's `grub-theme` topic. Click a card to open its **detail view**: large preview, the repository's
   description, stars, a link to its GitHub page and the resolution choice.
-  `cargo run -p pimp-my-grub-core --example build_catalog` (with `GITHUB_TOKEN`) pre-indexes the curated repos so the app needs no API calls on startup (script written, not yet run against live GitHub).
+  `cargo run -p style-my-grub-core --example build_catalog` (with `GITHUB_TOKEN`) pre-indexes the curated repos so the app needs no API calls on startup (script written, not yet run against live GitHub).
 - **Installer:** review screen listing every file that will change, the exact diff of `/etc/default/grub`, recovery instructions
   and a consent checkbox. Then polkit asks for your password.
 - **Manage:** *Undo last change* or *Remove all* at any time.
 - **System file choosers:** Open, Export, Add font, Upload image and the colour pickers use your desktop's own chooser
   (`zenity` on GTK/GNOME/XFCE/Cinnamon..., `kdialog` on KDE); Qt's built-in dialog is only the fallback when neither is
-  installed. Set `PIMPMYGRUB_NATIVE_DIALOGS=0` to always use Qt's dialog.
+  installed. Set `STYLEMYGRUB_NATIVE_DIALOGS=0` to always use Qt's dialog.
 - **Your colour:** the palette button in the header opens *Appearance*: pick the app's accent colour from presets, a hex
   field or the system colour chooser. It is remembered between runs. The GitHub button next to it opens the project page.
 - **Light:** the theme preview is drawn on the CPU only when something changes (no frame loop), a virtualised store grid with
@@ -109,7 +131,7 @@ HyperFluent, CyberGRUB-2077, Sidonia). Themes stay in their own repositories und
 ## Safety model
 | Step | Guarantee |
 |---|---|
-| Backup | `/etc/default/grub`, `grub.cfg` and the previous theme go to `/var/lib/pimp-my-grub/backups`; the very first copy is kept forever in `/var/lib/pimp-my-grub/original` |
+| Backup | `/etc/default/grub`, `grub.cfg` and the previous theme go to `/var/lib/style-my-grub/backups`; the very first copy is kept forever in `/var/lib/style-my-grub/original` |
 | Settings (`/etc/default/grub`) | only whitelisted keys with validated values, written as one marked block at the end of the file (your own lines are never edited); backed up first, `grub.cfg` regenerated and checked, automatic restore on any error, undo one step at a time |
 | `/etc/default/grub` (theme) | one marked block is added; conflicting `GRUB_THEME` / `GRUB_GFXMODE` / `GRUB_TERMINAL=console` lines are **commented out, never deleted** |
 | `grub.cfg` | never edited by hand: regenerated with `grub-mkconfig` into a temp file, checked with `grub-script-check`, must reference the new theme and still contain menu entries, then renamed atomically |
@@ -118,21 +140,21 @@ HyperFluent, CyberGRUB-2077, Sidonia). Themes stay in their own repositories und
 | Input | only `txt png jpg jpeg tga pf2`, no symlinks, safe file names, ≤ 40 MB; the staged copy is re-validated as root |
 | Boot | if a theme ever fails to load, GRUB shows its plain text menu; OS entries are never touched |
 
-Manual recovery: copy `/var/lib/pimp-my-grub/original/default-grub` back to `/etc/default/grub`, then `sudo update-grub`
+Manual recovery: copy `/var/lib/style-my-grub/original/default-grub` back to `/etc/default/grub`, then `sudo update-grub`
 (Debian/Ubuntu) or `sudo grub2-mkconfig -o /boot/grub2/grub.cfg` (Fedora/openSUSE).
 
-Privileges: packages install `/usr/libexec/pimp-my-grub/pimp-my-grub-helper` and a polkit action (`dev.pimpmygrub.helper`), so the
+Privileges: packages install `/usr/libexec/style-my-grub/style-my-grub-helper` and a polkit action (`dev.stylemygrub.helper`), so the
 prompt names the app. Without it (AppImage, dev builds) the app falls back to `pkexec /bin/sh -c <embedded script>`.
 **Supported:** GRUB 2 on Debian/Ubuntu/Arch/Fedora/openSUSE families. 
 **Not supported:** ostree/immutable systems, systemd-boot, rEFInd.
 
 ## Install
-Get the files from [Releases](https://github.com/Mahaadevan/pimp-my-grub/releases).
+Get the files from [Releases](https://github.com/Mahaadevan/style-my-grub/releases).
 
 | You have | Download | Notes |
 |---|---|---|
-| Debian, Ubuntu, Mint, Pop!_OS ... | `pimp-my-grub_<version>_amd64.deb` | `sudo apt install ./pimp-my-grub_*.deb`. Carries its own Qt 6, so the system's Qt version does not matter. |
-| Any other distribution | `pimp-my-grub-<version>-x86_64.AppImage` | `chmod +x` and run. Carries its own Qt 6. Needs FUSE 2 (`libfuse2`) or run it with `--appimage-extract-and-run`. |
+| Debian, Ubuntu, Mint, Pop!_OS ... | `style-my-grub_<version>_amd64.deb` | `sudo apt install ./style-my-grub_*.deb`. Carries its own Qt 6, so the system's Qt version does not matter. |
+| Any other distribution | `style-my-grub-<version>-x86_64.AppImage` | `chmod +x` and run. Carries its own Qt 6. Needs FUSE 2 (`libfuse2`) or run it with `--appimage-extract-and-run`. |
 | Fedora, openSUSE | the `.rpm` | built against the distribution's Qt |
 | Arch, Manjaro | `PKGBUILD` in `packaging/` (`makepkg -si`) | built against the distribution's Qt |
 
@@ -141,6 +163,25 @@ Get the files from [Releases](https://github.com/Mahaadevan/pimp-my-grub/release
 (the release workflow builds on Ubuntu 20.04, glibc 2.31: Debian 11+, Ubuntu 20.04+, Fedora 32+, openSUSE 15.2+ and all newer).
 Also required from the system: a display (X11 or Wayland), OpenGL/EGL (`libgl1`, `libegl1`), fontconfig, polkit. Optional: `zenity` or
 `kdialog` (system file chooser) and `grub-common` (to apply themes on a Debian-family system).
+
+## Compatibility
+
+| | Runs | Notes |
+|---|---|---|
+| **Boot loader** | GRUB 2.02 – 2.12 | Debian/Ubuntu/Mint/Pop!_OS, Fedora/RHEL, openSUSE, Arch/Manjaro, and anything else using GRUB 2 |
+| **Not supported** | systemd-boot, rEFInd, ostree/immutable systems (Silverblue, NixOS-style read-only `/boot`) | the app says so instead of breaking the boot loader |
+| **Display servers** | Wayland (EGL) and X11 (GLX/EGL) | GPU drawing by default on both; `STYLEMYGRUB_SOFTWARE=1` forces the CPU renderer, and the launcher retries once in safe mode if a driver crashes |
+| **Desktops** | KDE Plasma, GNOME, XFCE, Cinnamon, MATE, Budgie… | the app has its own fonts and Qt style, so it looks the same everywhere; `zenity` or `kdialog` provides the system file chooser (Qt's own dialog is the fallback) |
+| **Distribution for the .deb / AppImage** | any glibc ≥ 2.31 (Debian 11+, Ubuntu 20.04+, Fedora 32+, openSUSE 15.2+) | they bundle their own Qt 6 and C++ runtime, so the system's Qt does not matter; check yours with `ldd --version` |
+| **Distribution for a source build / .rpm / PKGBUILD** | whatever the distribution's Qt 6 is (6.5 or newer recommended) | the .rpm and PKGBUILD are built against the distribution's Qt, not bundled |
+| **Hardware** | x86_64 | aarch64/arm64 is untested (nothing in the code is x86-specific) |
+| **Privileges** | polkit (`pkexec` + the installed polkit action) | the packages install it; a source/AppImage run falls back to `pkexec /bin/sh -c <embedded script>`; the UI itself never runs as root |
+| **Disk layouts** | `/boot` on ext4, btrfs, xfs, or the same filesystem as `/` | encrypted `/boot` and some Btrfs+LVM setups are handled defensively (dry-run first, automatic rollback) but have not been tried on real hardware |
+
+What it needs from the system at run time: a display (X11 or Wayland), OpenGL/EGL (`libgl1`, `libegl1`),
+fontconfig and polkit. Optional: `zenity` or `kdialog` (system file chooser) and `grub-common` (to apply themes and to use
+GRUB's full `unicode.pf2` for previews; a built-in font is used when it is missing). Previewing and editing a theme never
+needs root; only *Read as administrator…* and installing ask for a password.
 
 ## Build from source
 Rust 1.85+, Qt 6 (Quick, Quick Controls 2, Dialogs), clang. At run time `zenity` (or `kdialog` on KDE) provides the system file chooser; without it Qt's own dialog is used. `grub-common` is optional at build time: previews use a built-in
@@ -153,11 +194,11 @@ sudo apt install qt6-base-dev qt6-declarative-dev clang libclang-dev \
   qml6-module-qtqml-workerscript qml6-module-qt-labs-folderlistmodel
 # Fedora: qt6-qtbase-devel qt6-qtdeclarative-devel clang-devel     Arch: qt6-base qt6-declarative clang
 
-QMAKE=$(command -v qmake6) cargo build --release -p pimp-my-grub
-./target/release/pimp-my-grub examples/midnight     # opens the demo theme
+QMAKE=$(command -v qmake6) cargo build --release -p style-my-grub
+./target/release/style-my-grub examples/midnight     # opens the demo theme
 ```
-Tests: `cargo test -p pimp-my-grub-core && sh tests/helper.test.sh`.
-`PIMPMYGRUB_CATALOG=catalog.json` replaces the bundled store catalog (offline mirrors, testing).
+Tests: `cargo test -p style-my-grub-core && sh tests/helper.test.sh`.
+`STYLEMYGRUB_CATALOG=catalog.json` replaces the bundled store catalog (offline mirrors, testing).
 Note: the first build compiles the Qt bindings (`cxx-qt-lib`) and takes about ten minutes (longer on one core).
 
 Packages (see `packaging/`):
@@ -166,7 +207,7 @@ open the packaging directory in terminal and run `build-binary.sh`
 | Distro family | Package | Build |
 |---|---|---|
 | Debian, Ubuntu, Mint | `.deb` (self-contained, bundles Qt) | `sh packaging/build-deb.sh` |
-| Fedora, openSUSE | `.rpm` | `packaging/pimp-my-grub.spec` |
+| Fedora, openSUSE | `.rpm` | `packaging/style-my-grub.spec` |
 | Arch, Manjaro | `PKGBUILD` | `makepkg -si` in `packaging/` |
 | Anything else | AppImage (self-contained, bundles Qt) | `packaging/build-appimage.sh` |
 
@@ -177,26 +218,26 @@ Flatpak is intentionally not offered: a sandbox cannot run polkit against `/boot
 
 ### If the app crashes or does nothing when started
 The program draws through Qt's normal graphics stack: **EGL/OpenGL on Wayland, GLX/EGL on X11** (Vulkan where Qt prefers it), so the
-window is tear-free and correctly scaled on HiDPI screens. If the driver cannot create a graphics context, `PIMPMYGRUB_SOFTWARE=1`
+window is tear-free and correctly scaled on HiDPI screens. If the driver cannot create a graphics context, `STYLEMYGRUB_SOFTWARE=1`
 forces CPU drawing (equivalently `QT_QUICK_BACKEND=software`). The launcher also retries once in **safe mode** (software drawing, X11
-instead of Wayland) when the app crashes in its first seconds, and remembers it. You can force it with `PIMPMYGRUB_SAFE=1`, or go back to normal with `PIMPMYGRUB_SAFE=0` (and delete
-`~/.cache/pimp-my-grub/safe-mode`). Diagnostics are in `~/.cache/pimp-my-grub/`: `last-run.log`, `first-attempt.log` (the crash that
+instead of Wayland) when the app crashes in its first seconds, and remembers it. You can force it with `STYLEMYGRUB_SAFE=1`, or go back to normal with `STYLEMYGRUB_SAFE=0` (and delete
+`~/.cache/style-my-grub/safe-mode`). Diagnostics are in `~/.cache/style-my-grub/`: `last-run.log`, `first-attempt.log` (the crash that
 triggered safe mode) and `crash.log` (internal errors with a backtrace). To see everything live, start it from a terminal.
 
 ### If the app does nothing when started
 If you installed the **.deb or AppImage** and see `undefined symbol` or a Qt error, you are probably running an older build
 (before 0.5.0) in which the bundled Qt was not used; update. If you see `GLIBC_x.y not found`, your system is older than the machine that
 built the package: use a package built on an older base, or build from source.
-For a **source / distribution** build, run `pimp-my-grub` from a terminal. If it prints `module "QtQuick.Dialogs" is not installed` (or another module), install the
+For a **source / distribution** build, run `style-my-grub` from a terminal. If it prints `module "QtQuick.Dialogs" is not installed` (or another module), install the
 `qml6-module-*` packages listed above (Debian/Ubuntu) or the full `qt6-declarative` package (Fedora/Arch/openSUSE).
-Started from the app menu, a failure now shows an error dialog and writes `~/.cache/pimp-my-grub/last-run.log`.
+Started from the app menu, a failure now shows an error dialog and writes `~/.cache/style-my-grub/last-run.log`.
 Release binaries built against Qt private API only run on the same Qt 6 minor version; use the AppImage elsewhere.
 
 ## Repository layout
 ```
 crates/core/   engine, no GUI deps: theme.txt model, PF2 reader, tiny-skia renderer, editor + undo, store, installer client
 crates/app/    Qt Quick shell (cxx-qt): QML UI and the painted viewport item
-helper/        pimp-my-grub-helper.sh, the only code that touches system files
+helper/        style-my-grub-helper.sh, the only code that touches system files
 packaging/     deb / rpm / PKGBUILD / AppImage, desktop file, polkit policy, metainfo
 examples/      "midnight", a small demo theme
 tests/         helper safety tests against a fake GRUB tree

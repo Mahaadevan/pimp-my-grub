@@ -1,5 +1,5 @@
 #!/bin/sh
-# Compiles target/release/pimp-my-grub, installing Rust and the Qt 6 build libraries first when they are missing.
+# Compiles target/release/style-my-grub, installing Rust and the Qt 6 build libraries first when they are missing.
 # usage: sh packaging/build-binary.sh [--no-install] [--clean] [--debug]
 #   --no-install  only check; never install anything (prints what is missing and exits)
 #   --clean       cargo clean the app crate first (use after switching Qt installs)
@@ -115,17 +115,17 @@ STEP_HINT=
 
 QMAKE=$(find_qmake); [ -n "$QMAKE" ] || die "qmake6 not found"; export QMAKE
 
-if [ "$CLEAN" = 1 ]; then step "Cleaning previous build" cargo clean -p pimp-my-grub; fi
+if [ "$CLEAN" = 1 ]; then step "Cleaning previous build" cargo clean -p style-my-grub; fi
 
 STEP_HINT="Open the full log above. 'prl path for Qt module' means the Qt dev package is missing or QMAKE points at the wrong Qt (now using: $QMAKE); re-run with --clean after fixing. Missing 'libclang' means install clang/libclang."
 if [ "$PROFILE" = release ]; then
-  step "Compiling pimp-my-grub (release; the first build takes several minutes)" cargo build --release --locked -p pimp-my-grub
+  step "Compiling style-my-grub (release; the first build takes several minutes)" cargo build --release --locked -p style-my-grub
 else
-  step "Compiling pimp-my-grub (debug)" cargo build --locked -p pimp-my-grub
+  step "Compiling style-my-grub (debug)" cargo build --locked -p style-my-grub
 fi
 STEP_HINT=
 
-BIN=target/$PROFILE/pimp-my-grub
+BIN=target/$PROFILE/style-my-grub
 verify() { [ -x "$BIN" ]; }   # do not run it: the app has no --version and would open a window
 step "Verifying $BIN" verify
 if command -v readelf >/dev/null 2>&1 && readelf -V "$BIN" 2>/dev/null | grep -q Qt_6_PRIVATE_API; then

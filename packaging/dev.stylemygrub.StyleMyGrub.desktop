@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Style My GRUB
+GenericName=GRUB Theme Builder
+Comment=Design and safely install GRUB boot themes
+Exec=style-my-grub
+Icon=dev.stylemygrub.StyleMyGrub
+Terminal=false
+Categories=Utility;System;Settings;
+Keywords=grub;theme;boot;bootloader;
+StartupWMClass=style-my-grub-bin

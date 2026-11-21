@@ -1,10 +1,10 @@
-# Maintainer: Pimp my GRUB <dev@pimpmygrub.local>
-pkgname=pimp-my-grub
+# Maintainer: Style My GRUB <dev@stylemygrub.local>
+pkgname=style-my-grub
 pkgver=0.6.3
 pkgrel=1
 pkgdesc='Native Qt 6 GRUB theme builder with a theme store and reversible installer'
 arch=(x86_64 aarch64)
-url='https://github.com/pimp-my-grub/pimp-my-grub'
+url='https://github.com/style-my-grub/style-my-grub'
 license=(GPL-3.0-or-later)
 depends=(qt6-declarative polkit)
 optdepends=('grub: required to apply themes' 'zenity: system file chooser on GTK desktops' 'kdialog: system file chooser on KDE' 'qqc2-desktop-style: native look on KDE')
@@ -15,7 +15,7 @@ sha256sums=(SKIP)
 build() {
   cd "$pkgname-$pkgver"
   export QMAKE=/usr/bin/qmake6
-  cargo build --release --locked -p pimp-my-grub
+  cargo build --release --locked -p style-my-grub
 }
 
 package() {

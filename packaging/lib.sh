@@ -18,7 +18,7 @@ case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
   *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) CH_FULL='━'; CH_HEAD='╸'; CH_EMPTY='━'; CH_OK='✔'; CH_BAD='✘'; CH_DOT='•' ;;
   *)                                CH_FULL='#'; CH_HEAD='>'; CH_EMPTY='-'; CH_OK='OK'; CH_BAD='x';  CH_DOT='|' ;;
 esac
-LOGFILE=${LOGFILE:-$(mktemp "${TMPDIR:-/tmp}/pimp-my-grub-build.XXXXXX")}
+LOGFILE=${LOGFILE:-$(mktemp "${TMPDIR:-/tmp}/style-my-grub-build.XXXXXX")}
 export LOGFILE
 PB_PID=
 
